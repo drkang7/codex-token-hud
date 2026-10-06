@@ -71,7 +71,7 @@ If Python is not on PATH, `Build.ps1 -PythonExecutable 'C:\path\to\python.exe'` 
 
 Packaging runs tests, builds the executable, copies an explicit release allowlist, downloads the pinned Python embeddable ZIP from python.org, checks SHA256, preserves its licenses, and smoke-tests the extracted release with system Python removed from PATH. Outputs are under `dist/`; neither `build/` nor `dist/` belongs in source control. See [contributing](CONTRIBUTING.md) and [release checklist](docs/RELEASING.md).
 
-GitHub Actions runs the test/build scripts on Windows for Python 3.10, 3.12, and 3.14. A separate workflow creates a **draft prerelease** when a version tag is pushed. The initial upload still requires its first hosted CI run; local verification is described separately.
+GitHub Actions runs the test/build scripts on Windows for Python 3.10, 3.12, and 3.14. The [first hosted run](https://github.com/drkang7/codex-token-hud/actions/runs/37492761938) passed all three matrix jobs and portable packaging on 2026-10-07. A separate workflow creates a **draft prerelease** when a version tag is pushed. Native UI verification is described separately.
 
 ## License
 

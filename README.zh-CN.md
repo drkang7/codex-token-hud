@@ -71,7 +71,7 @@ Python 不在 PATH 时使用 `Build.ps1 -PythonExecutable 'C:\path\to\python.exe
 
 打包会运行测试、编译、按白名单复制文件、下载并验证固定 Python 便携运行时，再在不依赖系统 Python 的条件下验证解压后的发布包。输出位于 `dist/`，不入 Git。参见 [贡献指南](CONTRIBUTING.md) 和 [发布步骤](docs/RELEASING.md)。
 
-GitHub Actions 配有 Windows 下 Python 3.10 / 3.12 / 3.14 的测试与构建，以及版本标签触发的**草稿预发布**流程。首次上传后仍需查看真实托管 CI 结果；本地验证不等同于 GitHub CI 已通过。
+GitHub Actions 配有 Windows 下 Python 3.10 / 3.12 / 3.14 的测试与构建，以及版本标签触发的**草稿预发布**流程。[首次托管 CI](https://github.com/drkang7/codex-token-hud/actions/runs/37492761938) 已于 2026-10-07 通过全部三组测试和便携包构建。实际 Codex 窗口的验证范围另见验证记录。
 
 ## 许可证
 

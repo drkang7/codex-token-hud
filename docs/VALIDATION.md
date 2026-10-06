@@ -14,7 +14,9 @@ The HUD was verified with Codex Desktop **26.930.7945** at **150%** display scal
 
 ## What remains unverified
 
-GitHub-hosted CI has not run until the first push. Its workflows use the same local scripts but a hosted runner is a separate environment. Python 3.10/3.12 and other Windows machines are included in the CI plan; the local primary interpreter is Python 3.14. Windows UI language beyond Chinese/English, other Codex versions/layouts, mixed display scaling, ARM64, cloud-only chats, and non-Windows platforms are unverified.
+The [first GitHub-hosted Windows CI run](https://github.com/drkang7/codex-token-hud/actions/runs/37492761938) passed on 2026-10-07: all three Python matrix jobs (3.10, 3.12, 3.14) and the portable package job succeeded. These validate synthetic telemetry and packaging on a hosted runner; they do not verify Codex's native UI on additional users' computers.
+
+Windows UI language beyond Chinese/English, other Codex versions/layouts, mixed display scaling, ARM64, cloud-only chats, and non-Windows platforms remain unverified.
 
 Internal telemetry fields and accessibility layout can change. Versioned database discovery only supports schemas with compatible thread metadata; it does not prove all future Codex releases work. Duplicate chat titles require explicit user binding. Historical tails are bounded, so this HUD is not a complete conversation accounting ledger.
 
