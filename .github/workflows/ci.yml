@@ -1,0 +1,46 @@
+name: Windows checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: x64
+      - name: Test metrics and presentation
+        shell: powershell
+        run: .\Test.ps1
+      - name: Build HUD
+        shell: powershell
+        run: .\Build.ps1 -OutputDirectory build\app
+  portable:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+          architecture: x64
+      - name: Build, test, and verify portable release
+        shell: powershell
+        run: .\Package.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64-beta
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,25 @@
+name: Bug report / 问题反馈
+description: Report a redacted reproduction of a HUD problem.
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach real Codex logs, databases, auth.json, private titles, account paths, or credentials. 请不要上传真实会话、认证文件或本机账号信息。"
+  - type: input
+    id: versions
+    attributes:
+      label: Versions / 版本
+      description: HUD, Windows, and Codex Desktop versions.
+    validations:
+      required: true
+  - type: input
+    id: display
+    attributes:
+      label: Display / 窗口环境
+      description: Display scale, UI language, and whether Codex runs as administrator.
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and result / 重现步骤与结果
+      description: Describe expected vs actual behavior. Use only synthetic or redacted examples.
+    validations:
+      required: true

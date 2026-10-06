@@ -1,0 +1,21 @@
+# Private local state: never publish conversation telemetry or absolute machine paths.
+runtime/
+inspection/
+tools/
+settings.json
+user-layout.json
+verification.json
+.env
+.env.*
+# Generated builds and downloads
+build/
+dist/
+*.exe
+*.dll
+*.pdb
+*.zip
+AssemblyInfo.g.cs
+__pycache__/
+*.pyc
+.venv/
+.vs/
