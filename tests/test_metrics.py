@@ -106,6 +106,7 @@ class MeasurementsTest(unittest.TestCase):
         self.assertEqual(m.last["cache_percent"], 75)
 
     def test_cache_has_correct_denominator_and_missing_is_unknown(self):
+        self.assertIsNone(cache_percent({"input_tokens": 1000, "cached_input_tokens": None}))
         self.assertEqual(cache_percent(usage(input_tokens=200, cached=150)), 75)
         self.assertEqual(cache_percent(usage(input_tokens=100, cached=0)), 0)
         self.assertIsNone(cache_percent(usage(input_tokens=0)))

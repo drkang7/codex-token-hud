@@ -1,4 +1,4 @@
-name: Windows checks
+name: HUD and portable dashboard checks
 on:
   push:
     branches: [main]
@@ -33,9 +33,9 @@ jobs:
         with:
           python-version: '3.14'
           architecture: x64
-      - name: Build, test, and verify portable release
+      - name: Package portable release (tests run in matrix)
         shell: powershell
-        run: .\Package.ps1
+        run: .\Package.ps1 -SkipTests -SkipSmokeTest
       - uses: actions/upload-artifact@v7
         with:
           name: windows-x64-beta
@@ -44,3 +44,26 @@ jobs:
             dist/*.sha256
           if-no-files-found: error
           retention-days: 14
+  cross-platform:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.10'
+          - os: macos-latest
+            python: '3.14'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Check portable parsing, range analysis and local HTTP service
+        run: python -m unittest discover -s tests -p 'test_*.py'
+      - name: Package dependency-free dashboard
+        run: python PackageDashboard.py
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dashboard-${{ matrix.os }}
+          path: dist/*-dashboard.zip

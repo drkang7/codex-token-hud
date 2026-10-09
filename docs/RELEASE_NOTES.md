@@ -1,15 +1,18 @@
-# Codex Token HUD 1.2.0-beta.1
+# Codex Token HUD 1.3.0-beta.1
 
-First public Windows x64 beta candidate. Shows the current local Codex Desktop chat's recorded model, completed-response output token speed, and input cache fraction in a draggable/resizable native strip.
+Select a time interval or the first/last user messages, then confirm to see weighted average output speed and cache hit fraction across complete local history. Includes the last selected message's responses, handles resumed log segments, and reports missing-data coverage. The matching Windows HUD can show the confirmed range or return to the latest response.
 
-- Portable ZIP includes private Python; no system Python or pip packages required.
-- 100 ms data polling, visible sample age, stale/new-turn guards, and manual refresh.
-- Saved per-user layout, tray menu, optional desktop shortcut and logon startup.
-- Resumed rollout tracking, versioned database discovery, and CODEX_HOME support.
-- Local-only read-only telemetry; no credentials, network requests, or Codex installation modifications at runtime.
+- Portable browser dashboard and terminal reports use existing Python 3.10+ on Windows/macOS/Linux and other compatible Python hosts; no pip dependencies.
+- Local Desktop/CLI/IDE logs, archived/offline JSONL, database-free file discovery, CODEX_HOME, WSL and SSH forwarding.
+- Browser mini-window, plus the original draggable/resizable native Windows strip and saved layout.
+- Exact-ID Windows pinning from the dashboard, including CLI/IDE conversations, with separate pinned/automatic layouts.
+- AnyCPU Windows executable with architecture-matching x64/ARM64/x86 private-Python package options.
+- Manual refresh rescans rollouts, rereads the latest file, returns visible acknowledgement, and distinguishes no new usage from failure.
+- Same-size log rewrites are detected and reread.
+- Loopback-only token-protected dashboard. User message excerpts stay in browser/process memory; saved statistics omit message text. No credentials or external runtime requests.
 
-Extract the entire `win-x64.zip` and run `CodexTokenHud.exe`. Compare its SHA256 with the adjacent `.sha256` file. Requires Windows 10/11 x64 and .NET Framework 4.8. The EXE is unsigned and may request elevation to match an elevated Codex window.
+For Windows x64, extract the entire `win-x64.zip` and run `CodexTokenHud.exe` (.NET Framework 4.8 required). `StartDashboard.ps1` starts the browser alternative using private Python. The source `dashboard.zip` runs with `python3 dashboard.py`. ARM64/x86 packages are execution candidates with explicit hardware-validation limits. Windows 11 ARM64 native Framework support requires 4.8.1. The native EXE is unsigned and may request elevation to match an elevated Codex window.
 
-Known limits: local desktop chats only; header matching verified in Chinese/English on Codex 26.930.7945 at 150% scaling; duplicate titles require right-click selection. Speed is a response average reported after final usage arrives. Exact current-chat weekly allowance percentage is unavailable and is shown as such.
+Only readable compatible local logs can be measured; cloud-only tasks are unavailable. Non-Windows interfaces use manual conversation selection and do not supply a native overlay. macOS/Linux CI has been configured; local Windows verification does not prove hardware behavior on other platforms. Exact current-chat weekly allowance percentage remains unavailable.
 
 See README and docs/VALIDATION.md for formulas, privacy, verification scope, and troubleshooting.

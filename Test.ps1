@@ -10,9 +10,11 @@ try {
     $taskBuild = Join-Path $taskRoot 'build\tests'
     New-Item -ItemType Directory -Path $taskBuild -Force | Out-Null
     $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    if (-not (Test-Path -LiteralPath $taskCsc)) { $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\FrameworkArm64\v4.0.30319\csc.exe' }
+    if (-not (Test-Path -LiteralPath $taskCsc)) { $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
     $taskWpf = Join-Path (Split-Path -Parent $taskCsc) 'WPF'
     $taskTestExe = Join-Path $taskBuild 'PresentationTests.exe'
-    $taskArgs = @('/nologo', '/target:exe', '/platform:x64', '/main:PresentationTests',
+    $taskArgs = @('/nologo', '/target:exe', '/platform:anycpu', '/main:PresentationTests',
         "/out:$taskTestExe", '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll',
         '/r:System.Web.Extensions.dll', '/r:Microsoft.CSharp.dll',
         "/r:$taskWpf\UIAutomationClient.dll", "/r:$taskWpf\UIAutomationTypes.dll", "/r:$taskWpf\WindowsBase.dll",

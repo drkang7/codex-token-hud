@@ -31,6 +31,22 @@ class PresentationTests
         Check(display.Rate == "--" && !display.Fresh && display.Freshness == "历史 2天前", "old sample is not current speed");
 
         data = Fixture(now);
+        data["thread_id"] = "t";
+        data["range"] = new Dictionary<string, object> {
+            {"thread_id", "t"}, {"rate", 18.5}, {"cache_percent", 90.0},
+            {"models", new object[] {"model-a", "model-b"}}, {"sample_count", 12} };
+        display = MetricDisplay.Read(data, "current", now);
+        Check(display.Rate == "18.5" && display.Cache == "缓存 90.0%" && display.Stage == "区间平均 · 12 次响应" &&
+            display.Model == "model-a / model-b", "confirmed weighted range is presented");
+        Json.Object(data, "range")["thread_id"] = "another";
+        display = MetricDisplay.Read(data, "current", now);
+        Check(display.Rate == "22.0", "range never crosses conversation ID");
+        Json.Object(data, "range")["thread_id"] = "t";
+        data["updated_at_ms"] = now - 10000;
+        display = MetricDisplay.Read(data, "current", now);
+        Check(display.Rate == "--", "range waits for collector after disconnection");
+
+        data = Fixture(now);
         Json.Object(data, "metrics")["stage"] = "generating";
         Json.Object(data, "metrics")["turn_started_at_ms"] = now - 500;
         display = MetricDisplay.Read(data, "current", now);

@@ -1,5 +1,23 @@
 # Validation and limits
 
+## 1.3.0-beta.1 — local checks on 2026-10-10
+
+Targeted checks on Windows x64 / Python 3.14.8:
+
+- Existing 21 collector/parser regressions passed once after the collector changes.
+- 13 new historical-range and local-server cases passed incrementally. They cover weighted denominators, inclusive completion-time bounds, inclusion of the last message's response, repeated-message selection, missing telemetry, canonical/legacy dedup, resumed segment gaps, history beyond the live tail, stable message IDs, database-free titles, offline EOF records, manual ID binding, same-size rewrites, loopback token/Origin/Host validation, and refresh acknowledgement while the database retains the previous path. Two fixture cleanup failures were corrected by closing fixture SQLite connections; only affected cases were rerun.
+- 19 C# presentation/configuration checks passed, including confirmed ranges, conversation-ID isolation, and collector disconnection. AnyCPU compilation succeeded. Native hit geometry was unchanged; earlier broad native tests were not repeated.
+- Browser interactions exercised both selection modes, confirmation and persisted results using artificial logs. The complete time range returned 3,116 output tokens / 92 s = 33.8696 tok/s and 54,000 / 61,000 cached/input = 88.5246%. Selecting the first through third user messages included the third answer and excluded the fourth: 2,466 / 72 s = 34.25 tok/s; 39,600 / 45,000 = 88% cache. Screenshots use this artificial fixture only.
+- The terminal entry point ran in Python isolated mode and returned the same weighted time-range values. The bundled Windows x86 Python also ran this report successfully on the current Windows x64 host; this does not verify a 32-bit OS or x86 native HUD.
+- Complete history of the current local conversation was parsed across multiple resumed segments. The browser-confirmed one-hour result synchronized to the native HUD: 31.9 tok/s, 93.8% cache, 56 responses. Browser pin/unpin feedback and exact-ID binding were observed, with a separate pinned layout saved. The installed native copy was rebuilt; no real message bodies are included in public screenshots or artifacts.
+- Official x64/ARM64/x86 Python download digests were checked for packaging. No逐文件哈希 or repeat full-package smoke run was performed; only download integrity and ZIP distribution checksums are used.
+
+The current local Codex installation is 26.1002.7124.0. Header discovery now accepts an exact known local chat title when menu wording has changed. Current native telemetry binding is checked separately from artificial average values.
+
+Windows x64 source, local server and UI were exercised. macOS/Linux CI jobs are configured but have not been run as part of local verification. ARM64 and x86 ZIPs are built candidates, not proof of execution on ARM64 hardware or a 32-bit OS. WSL was unavailable on this machine and was not installed. The portable source entry points remain conditional on an existing compatible Python runtime and readable local logs. No pure-cloud statistics, native macOS/Linux overlay, instantaneous per-token stream or per-conversation weekly quota measurement is claimed.
+
+## Earlier 1.2.0-beta.1 verification
+
 This record describes local verification of **1.2.0-beta.1** on 2026-10-06. It contains no real chat identifiers, titles, or machine paths.
 
 ## Automated checks

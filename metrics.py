@@ -9,12 +9,17 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import sys
 import time
 from typing import Any
 
+# In isolated mode, trust only this installed source directory for sibling modules.
+if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 
 def timestamp_ms(value: str | None) -> float | None:
-    if not value:
+    if not isinstance(value, str) or not value:
         return None
     try:
         return dt.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000
@@ -31,6 +36,8 @@ def integer(value: Any) -> int:
 
 def cache_percent(usage: dict) -> float | None:
     if "input_tokens" not in usage or "cached_input_tokens" not in usage:
+        return None
+    if usage["input_tokens"] is None or usage["cached_input_tokens"] is None:
         return None
     total = integer(usage.get("input_tokens"))
     cached = integer(usage.get("cached_input_tokens"))
@@ -237,6 +244,8 @@ class SessionTail:
             self.mtime_ns = stat.st_mtime_ns
             if self.initialized and size == self.offset and unchanged:
                 return
+            if self.initialized and size == self.offset and not unchanged:
+                self.reset()  # Same-length rewrites can leave the last 64 payload bytes unchanged.
             # A chat left unwatched for days can have hundreds of MB of new logs.
             # Jump to recent history rather than publishing old samples while replaying it.
             if self.initialized and size - self.offset > 16 * 1024 * 1024:
@@ -388,16 +397,22 @@ def atomic_json(path: Path, value: dict) -> None:
             time.sleep(0.015 * (attempt + 1))
 
 
-def monitor(codex_home: Path, runtime: Path, parent_pid: int | None = None, once: bool = False) -> dict | None:
-    repository = ThreadRepository(codex_home)
+def monitor(codex_home: Path, runtime: Path, parent_pid: int | None = None, once: bool = False,
+            dashboard_enabled: bool = False) -> dict | None:
+    from history import SessionCatalog
+    catalog = SessionCatalog(codex_home)
+    repository = catalog.repository
+    if dashboard_enabled and not once:
+        from dashboard import start_server
+        start_server(codex_home, runtime, native_enabled=os.name == "nt")
     tails = TailCache()
-    refreshed = 0.0
     matched_at = 0.0
     selection_key = None
     last_refresh_id = None
     matches: list[dict] = []
     last_published = 0.0
     last_payload = None
+    refresh_result = None
     while True:
         if parent_pid and os.name == "nt":
             import ctypes
@@ -414,32 +429,47 @@ def monitor(codex_home: Path, runtime: Path, parent_pid: int | None = None, once
             kernel.CloseHandle(handle)
             if not alive:
                 return None
-        if time.monotonic() - refreshed > 1 or once:
-            repository.refresh()
-            refreshed = time.monotonic()
+        elif parent_pid:
+            try:
+                os.kill(parent_pid, 0)
+            except ProcessLookupError:
+                return None
+            except PermissionError:
+                pass
         selection = read_selection(runtime / "selection.json")
         title = selection.get("title", "")
         selected_id = selection.get("thread_id")
         refresh_id = selection.get("refresh_id")
         force = refresh_id != last_refresh_id
         last_refresh_id = refresh_id
+        catalog.refresh(force=force or once)
         key = (title, selected_id)
         if key != selection_key or force or time.monotonic() - matched_at >= 0.5 or once:
-            matches = repository.title_matches(title) if title else []
+            matches = catalog.title_matches(title) if title else []
             selection_key = key
             matched_at = time.monotonic()
         selected = next((r for r in matches if r["id"] == selected_id), None)
-        if selected is None and len(matches) == 1:
+        if selection.get("binding_mode") == "manual" and selected_id:
+            selected = catalog.rows.get(selected_id)
+        if selected is None and len(matches) == 1 and selection.get("binding_mode") != "manual":
             selected = matches[0]
         status = "ok" if selected else "ambiguous" if len(matches) > 1 else "unbound"
         tail = tails.update(selected, force) if selected else None
         metrics = tail.measurements.snapshot() if tail else None
-        result = {"schema_version": 2,
+        if force:
+            refresh_result = {"request_id": refresh_id, "completed_at_ms": time.time() * 1000,
+                              "state": "ok" if tail and tail.source_state == "ok" else
+                              "unavailable" if tail else status,
+                              "sample_at_ms": tail.measurements.last_usage_at if tail else None}
+        saved_range = read_selection(runtime / "range-result.json")
+        range_result = saved_range if selected and saved_range.get("thread_id") == selected["id"] else None
+        result = {"schema_version": 2, "collector_pid": os.getpid(),
                   "repository_state": repository.state,
                   "binding": status, "thread_id": selected["id"] if selected else None,
                   "title": title, "metrics": metrics, "source": tail.source() if tail else None,
-                  "matches": [{"id": r["id"], "title": r["title"], "model": r["model"], "updated_at": r["updated_at"]} for r in matches],
-                  "threads": [{"id": r["id"], "title": r["title"], "model": r["model"]} for r in list(repository.rows.values())[:80]]}
+                  "refresh": refresh_result, "range": range_result,
+                  "matches": [{k: r.get(k) for k in ("id", "title", "model", "updated_at")} for r in matches],
+                  "threads": [{"id": r["id"], "title": r["title"], "model": r["model"]} for r in list(catalog.rows.values())[:80]]}
         if once:
             result["updated_at_ms"] = time.time() * 1000
             return result
@@ -457,8 +487,9 @@ def main() -> None:
     parser.add_argument("--runtime", type=Path, default=Path(__file__).resolve().parent / "runtime")
     parser.add_argument("--parent-pid", type=int)
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--dashboard", action="store_true", help="Start the local historical statistics panel")
     args = parser.parse_args()
-    result = monitor(args.codex_home, args.runtime, args.parent_pid, args.once)
+    result = monitor(args.codex_home, args.runtime, args.parent_pid, args.once, args.dashboard)
     if result is not None:
         print(json.dumps(result, ensure_ascii=False, allow_nan=False))
 

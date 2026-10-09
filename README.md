@@ -2,77 +2,113 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-A small, local Windows companion that shows the current Codex Desktop chat's model, output token speed, and input cache hit rate in a draggable status strip.
+Local Codex output speed and input cache statistics, with a native Windows HUD, a portable browser dashboard, and terminal reports.
 
-![Codex Token HUD](docs/images/hud.png)
+**Source version: 1.3.0-beta.1.** Independent project, unaffiliated with OpenAI. Reads local logs without changing Codex or uploading conversations.
 
-**Status: 1.2.0-beta.1. Windows x64 only.** This is an independent project, unaffiliated with OpenAI. It uses local telemetry and does not modify Codex's installation.
+![Windows HUD](docs/images/hud.png)
 
-## Try the portable release
+## Select a range
 
-1. Download `CodexTokenHud-1.2.0-beta.1-win-x64.zip` from this repository's Releases page.
-2. Extract the **whole** ZIP to a folder you control. Keep the EXE, `metrics.py`, and `python/` together.
-3. Run `CodexTokenHud.exe`, then open a local chat in Codex Desktop.
+Right-click the Windows strip or tray icon and open **区间统计：按时间或首尾消息…**. On other systems, start the dashboard directly.
 
-The ZIP includes a private Python runtime; you do not need to install Python or any pip packages. Windows 10/11 x64 with .NET Framework 4.8 is the target. The EXE requests the highest available user privilege to read the accessibility tree of an elevated Codex window; administrator accounts may see a Windows UAC prompt. The beta EXE is unsigned.
+1. Select a local conversation by title and ID.
+2. Choose a start/end time, or search for the first and last user messages and select the matching timestamped results.
+3. Confirm to see weighted average `tok/s`, weighted cache hit rate, completed responses, output tokens, measured duration and telemetry coverage. The matching Windows HUD switches to the confirmed range too.
 
-Drag the middle of the strip to move it; drag an edge or corner to resize it. Right-click the strip or its tray icon for refresh, reset layout, startup, and exit. It appears while the matching Codex window is foreground. Closing the strip exits its collector too.
+A message range includes both boundary user messages and responses to the last message, ending before the next user message. A time range includes responses completed within the inclusive bounds, using the browser's local timezone. Repeated message text requires an explicit result selection.
 
-Autostart is optional. Run `Install.ps1` in an administrator PowerShell to add a desktop shortcut and a per-user logon task, or use the tray menu. `Uninstall.ps1` removes only the task/shortcut belonging to this copy. It preserves your saved layout. For temporary use, simply run the EXE.
+**Average speed = total output tokens of timed samples / total generation seconds. Cache fraction = total cached input tokens / total input tokens.** Missing timing/cache data is excluded separately, never treated as zero. Reasoning tokens already included in output are not added again. Available log boundaries exclude tool execution; request timing includes time to first token.
 
-## What the numbers mean
+Confirmed results are fixed snapshots. Confirm again to update, or use **返回最近响应** to restore the latest-response view. History is streamed on demand across resumed rollouts, without the live collector's 8 MiB tail limit.
+
+<details>
+<summary>Dashboard example (artificial conversation data)</summary>
+
+![Message range dashboard](docs/images/dashboard.jpg)
+
+</details>
+
+## Portable dashboard
+
+Use an existing **Python 3.10+ with SQLite**. No pip dependencies or installation required. Extract the full dashboard ZIP or source checkout, then run:
+
+```sh
+python3 -I -X utf8 dashboard.py
+sh start-dashboard.sh
+# Custom data directory or explicit offline files:
+python3 dashboard.py --codex-home /path/to/.codex
+python3 dashboard.py --log /path/to/rollout.jsonl --log /path/to/resumed.jsonl
+```
+
+On Windows:
+
+```powershell
+.\StartDashboard.ps1
+.\StartDashboard.ps1 -PythonExecutable 'C:\path\to\python.exe'
+```
+
+The dashboard works with compatible local Desktop/CLI/IDE logs on Python-supported Windows, macOS and Linux architectures. It is independent of window titles, UI language and desktop accessibility. Select conversations manually. **小窗** opens a separate browser mini-window movable/resizable through the OS. There is no native floating HUD or automatic active-window binding on macOS/Linux.
+
+The panel opened from a running Windows HUD also offers **将此对话固定到 Windows 状态栏**: bind by exact conversation ID and keep the strip above other applications. This enables CLI/IDE conversations and provides a fallback for temporarily unavailable desktop title recognition. Pinned and automatic layouts are stored separately. **解除固定，自动跟随桌面对话** restores automatic tracking.
+
+For WSL, SSH or headless hosts, use `python3 dashboard.py --no-browser --port 8765`. Forward the same port with `ssh -L 8765:127.0.0.1:8765 user@host`, then open the exact printed URL on your own computer. See [compatibility details](docs/COMPATIBILITY.md). The server binds loopback only, validates Host/Origin, requires a per-process local token, and uses no external assets. Do not share its link.
+
+Cloud-only conversations without readable local logs cannot be measured. Other compatible Python hosts have source entry points, but platform availability is distinct from actual hardware validation.
+
+## Native Windows HUD
+
+Windows ZIPs bundle an architecture-matching private Python runtime. Extract all files and launch `CodexTokenHud.exe`; put a local Codex Desktop chat in the foreground. Keep all source modules, `web/` and `python/` beside the EXE.
+
+- Windows 10/11 x64 + .NET Framework 4.8: locally verified.
+- Windows ARM64: matching Python packaging available; AnyCPU HUD requires compatible Framework 4.8.1 or emulation. Not hardware-verified here.
+- Windows x86: 32-bit Python packaging available, mainly for browser/terminal use. Codex Desktop may not support a 32-bit OS.
+
+The EXE is unsigned and requests the highest available user privilege for an elevated Codex window; administrator accounts may see UAC. Drag the strip's middle to move it and an edge/corner to resize it. Layout persists. Optional startup is available from the tray or `Install.ps1`; `Uninstall.ps1` removes only this copy's task/shortcut and preserves saved data. Exiting the HUD stops its collector and local dashboard service.
+
+**立即刷新数据** now rescans rollouts, follows newly resumed segments even if the database path is stale, rereads the latest file and returns visible pending/success/no-new-count/error feedback. An unresponsive collector reconnects. Refresh cannot cause Codex to publish usage that has not yet been recorded.
+
+## Latest-response measurements
 
 | Field | Meaning |
 | --- | --- |
-| Model | The model recorded in this local chat's latest telemetry |
-| `tok/s` | Output tokens divided by measured generation time for the latest completed model response, including reasoning tokens once |
-| Cache | Cached input tokens / all input tokens for that same response |
-| Age/state | Time of the measurement; new turns and expired samples show `--` |
-| This chat's weekly allowance | Unavailable: local telemetry does not expose an attributable weekly allowance debit or denominator |
+| Model | Latest recorded local model, or models included in a confirmed range |
+| `tok/s` | Output tokens / generation seconds for the latest completed response |
+| Cache | Cached input tokens / total input tokens for that response |
+| Freshness | Sample time; model switches, new turns without counts, expired samples and lost heartbeat hide old values |
+| This chat's weekly allowance | Unavailable: no attributable per-thread debit or weekly denominator is exposed |
 
-**Speed is a response average, not a live token counter.** The log supplies final counts after a response finishes. When stream timing is available, timing starts at the earliest model item; the fallback uses the request interval and includes time to first token. Tool execution is excluded when the recorded boundaries allow it. Hover for the timing basis and full sample time. Model switches, new turns without counts, samples older than 15 minutes, and collector heartbeat loss hide old numeric results.
+Counts arrive after response completion. This is a response average, not a live per-token counter. The collector polls every 100 ms, publishes heartbeat at least every second, and rediscovers log segments every two seconds (immediately on manual refresh). The native strip updates every 150 ms and checks the active chat about every 350 ms. The browser polls every second. Samples older than 15 minutes are hidden in the live view; confirmed historical ranges remain valid snapshots.
 
-The cache figure is a token fraction, not a cache request success rate. Token counts or API price estimates cannot be converted into this chat's percentage of a ChatGPT weekly allowance. The HUD does not estimate that percentage.
+## Terminal reports
 
-The collector checks for appended data every 100 ms and publishes a heartbeat at least once per second. The strip refreshes every 150 ms and checks the active chat around every 350 ms. Codex's own telemetry delivery can take longer.
+```sh
+python3 stats.py --list
+python3 stats.py --thread THREAD_ID --start '2026-10-09T10:00:00+08:00' --end '2026-10-09T11:00:00+08:00'
+python3 stats.py --thread THREAD_ID --messages 'message fragment'
+python3 stats.py --thread THREAD_ID --first FIRST_MESSAGE_ID --last LAST_MESSAGE_ID
+```
 
-## Local data and configuration
+Output is local JSON. `--messages` displays user excerpts for selection; do not publish that output.
 
-- Reads only thread metadata from a compatible `state_*.sqlite` opened read-only, plus the selected chat's recent JSONL tail. Message text is traversed as part of the JSONL but is not exported or stored by the HUD.
-- No network requests, analytics, credentials, account quota requests, or changes to Codex files at runtime. The **developer packaging script** downloads the official Python archive after verifying a pinned SHA256.
-- Layout and derived telemetry stay under `%LOCALAPPDATA%\CodexTokenHud`. This folder contains private chat titles, IDs, and local paths. Do not upload it.
-- The Codex home defaults to `%USERPROFILE%\.codex`; `CODEX_HOME` is supported.
-- Copy `settings.example.json` to `settings.json` beside the EXE or in the data folder for `codex_home` / `pythonw` overrides. A per-user file takes precedence. Relative Python paths are resolved beside the EXE. The portable runtime is preferred over PATH when no override is set.
-- `CODEX_TOKEN_HUD_HOME` can isolate the HUD's data directory for development. Existing installs' legacy `user-layout.json` is copied into the new data folder once.
+## Data, development and validation
 
-## Compatibility and troubleshooting
-
-The beta was exercised with Codex Desktop 26.930.7945 on Windows at 150% display scaling. It binds chats by the visible accessibility header and exact local title. Chinese and English headers are recognized; other UI languages and future layouts are not verified. Two identical titles require an explicit right-click selection; the HUD does not guess. UI matching uses an internal app structure and can break after Codex updates.
-
-Only **local** Codex chats with a readable rollout are supported. CLI/VS Code windows, cloud-only chats, macOS, Linux, and ARM64 native builds are outside this release. If the tray icon appears without a strip, bring a local Codex chat to the foreground and check that the HUD and Codex have compatible privilege levels. New or idle chats may have no current sample. Database incompatibility and unreadable logs are displayed as unavailable, never fabricated measurements.
-
-See [validation and known limits](docs/VALIDATION.md), [privacy](PRIVACY.md), and [change history](CHANGELOG.md). Please report problems using synthetic/redacted examples; do not attach real session logs or account credentials.
-
-## Build and test
-
-Source builds require Windows x64, the Windows .NET Framework 4.x compiler, and Python 3.10+ for tests/runtime. The collector uses only the standard library.
+The default Codex home is `~/.codex`; `CODEX_HOME`, `--codex-home`, archived rollouts and explicit offline files are supported. The Windows HUD also supports Python/path overrides in `settings.example.json`. Derived statistics and layouts live in LocalAppData on Windows, Application Support on macOS, and XDG state on Linux; `CODEX_TOKEN_HUD_HOME` overrides the location. User excerpts are indexed in memory for selection, not saved with the range result. Do not upload runtime data, real logs, authentication files or screenshots containing private chat text. See [privacy](PRIVACY.md).
 
 ```powershell
-.\Test.ps1
 .\Build.ps1
-.\Start.ps1
+.\Test.ps1
+.\Package.ps1 -Architecture x64
+# Cross-build candidates without running the target Python on an incompatible host:
+.\Package.ps1 -Architecture arm64 -SkipTests -SkipSmokeTest
+.\Package.ps1 -Architecture x86 -SkipTests -SkipSmokeTest
 ```
 
-If Python is not on PATH, `Build.ps1 -PythonExecutable 'C:\path\to\python.exe'` writes an ignored, local configuration. Use `Stop.ps1` before rebuilding a running EXE. To build away from the running copy: `Build.ps1 -OutputDirectory build\app`.
-
-```powershell
-.\Package.ps1
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 PackageDashboard.py
 ```
 
-Packaging runs tests, builds the executable, copies an explicit release allowlist, downloads the pinned Python embeddable ZIP from python.org, checks SHA256, preserves its licenses, and smoke-tests the extracted release with system Python removed from PATH. Outputs are under `dist/`; neither `build/` nor `dist/` belongs in source control. See [contributing](CONTRIBUTING.md) and [release checklist](docs/RELEASING.md).
+Windows builds use an existing .NET Framework compiler, preferring Framework64 and falling back to Framework, with AnyCPU output. Stop this copy before replacing its EXE, or build to a separate output directory. Packaging uses an explicit allowlist and pinned official Python download digests. `-SkipTests -SkipSmokeTest` avoids repeating broad checks after appropriate targeted validation. CI includes Windows tests/build and macOS/Linux parsing/range/local-server checks; configured jobs are not proof of a passed run.
 
-GitHub Actions runs the test/build scripts on Windows for Python 3.10, 3.12, and 3.14. The [first hosted run](https://github.com/drkang7/codex-token-hud/actions/runs/37492761938) passed all three matrix jobs and portable packaging on 2026-10-07. A separate workflow creates a **draft prerelease** when a version tag is pushed. Native UI verification is described separately.
-
-## License
-
-[MIT](LICENSE). The portable distribution includes CPython under its own licenses, preserved in `python/LICENSE.txt`; see [third-party notices](THIRD_PARTY_NOTICES.md).
+[Compatibility](docs/COMPATIBILITY.md) · [Validation](docs/VALIDATION.md) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE)

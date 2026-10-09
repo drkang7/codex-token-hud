@@ -18,10 +18,12 @@ using System.Reflection;
 [assembly: AssemblyInformationalVersion("$taskVersion")]
 "@ | Set-Content -LiteralPath $taskAssemblyInfo -Encoding UTF8
 $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-if (-not (Test-Path -LiteralPath $taskCsc)) { throw '.NET Framework 4.x compiler is required on Windows x64.' }
+if (-not (Test-Path -LiteralPath $taskCsc)) { $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\FrameworkArm64\v4.0.30319\csc.exe' }
+if (-not (Test-Path -LiteralPath $taskCsc)) { $taskCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe' }
+if (-not (Test-Path -LiteralPath $taskCsc)) { throw '.NET Framework 4.x compiler is required on Windows.' }
 $taskWpf = Join-Path (Split-Path -Parent $taskCsc) 'WPF'
 $taskExe = Join-Path $taskOutput 'CodexTokenHud.exe'
-$taskArgs = @('/nologo', '/target:winexe', '/platform:x64', '/optimize+',
+$taskArgs = @('/nologo', '/target:winexe', '/platform:anycpu', '/optimize+',
     "/out:$taskExe", "/win32manifest:$taskRoot\app.manifest", '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll',
     '/r:System.Web.Extensions.dll', '/r:Microsoft.CSharp.dll',
     "/r:$taskWpf\UIAutomationClient.dll", "/r:$taskWpf\UIAutomationTypes.dll", "/r:$taskWpf\WindowsBase.dll",

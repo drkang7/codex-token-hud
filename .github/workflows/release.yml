@@ -21,6 +21,9 @@ jobs:
           $taskVersion = (Get-Content VERSION -Raw).Trim()
           if ($env:GITHUB_REF_NAME -ne "v$taskVersion") { throw 'Tag must match VERSION.' }
           .\Package.ps1
+          .\Package.ps1 -Architecture arm64 -SkipTests -SkipSmokeTest
+          .\Package.ps1 -Architecture x86 -SkipTests -SkipSmokeTest
+          python PackageDashboard.py
       - name: Create draft prerelease
         shell: powershell
         env:

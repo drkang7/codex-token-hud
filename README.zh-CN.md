@@ -2,77 +2,121 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-在 Windows 上，为当前 Codex Desktop 对话显示模型、输出 token 速率和输入缓存命中率。状态条可拖拽、调整大小，默认显示在窗口底部。
+本地 Codex token 统计工具：Windows 底部悬浮状态栏，以及可跨平台运行的浏览器面板和命令行报告。
 
-![状态条实际截图](docs/images/hud.png)
+**当前源码版本：1.3.0-beta.1。** 独立开源项目，与 OpenAI 无隶属关系。只读本地日志，不改动 Codex 安装，不上传聊天内容。
 
-**当前版本：1.2.0-beta.1，Windows x64 测试版。** 本项目为独立工具，与 OpenAI 无隶属关系，读取本地统计，不修改 Codex 安装文件。
+![Windows 状态栏](docs/images/hud.png)
 
-## 直接使用
+## 新增：区间平均统计
 
-1. 从仓库 Releases 下载 `CodexTokenHud-1.2.0-beta.1-win-x64.zip`。
-2. **完整解压**到自己的文件夹，保留 EXE、`metrics.py` 和 `python/` 的相对位置。
-3. 双击 `CodexTokenHud.exe`，在 Codex Desktop 中打开本地对话。
+在 Windows 状态栏或托盘图标上右键，选择 **“区间统计：按时间或首尾消息…”**。其他平台直接启动浏览器面板。
 
-便携包自带独立 Python，无需自行安装 Python 或 pip 包。目标系统为 Windows 10/11 x64，需有 .NET Framework 4.8。程序请求当前用户可获得的最高权限，以读取管理员模式 Codex 的无障碍窗口信息；管理员账户可能看到 Windows UAC 提示。测试版 EXE 尚未签名。
+1. 选择一个本地对话，标题重复时可以按 ID 区分。
+2. 选择“按时间段”，填写开始和结束时间；或选择“按首尾消息”，输入消息全文或片段，点击查找，再点击对应的发送时间和消息。
+3. 点击“确认范围并统计”，显示该范围的平均 tok/s、平均缓存命中率、响应数量、总输出、有效计时和数据覆盖。Windows 状态栏同时显示该对话的“均速”。
 
-拖动状态条中间可移动，拖动边缘或角落可缩放。右键状态条或托盘图标，可以立即刷新、恢复底部布局、设置登录启动或退出。状态条随当前 Codex 窗口显示，退出后后台采集器一起结束。
+消息范围包含首尾两条用户消息，以及末条消息后的回答，截止到下一条用户消息之前。时间范围按响应完成时间判断，包含起止边界，使用本机时区。重复的消息不会自动猜测，需明确选择搜索结果。
 
-自动启动为可选操作：在管理员 PowerShell 中运行 `Install.ps1`，或使用右键菜单。安装脚本创建桌面快捷方式和当前用户的登录启动任务。`Uninstall.ps1` 只移除指向当前副本的启动任务和快捷方式，并保留布局数据。临时使用只需双击 EXE。
+**平均 tok/s = 有效样本的总输出 token ÷ 总生成秒数。平均缓存命中率 = 总缓存输入 token ÷ 总输入 token。** 两项都采用加权统计。缺少计时的响应只排除速率统计；缺少缓存计数的响应只排除缓存统计，并分别显示覆盖数量。工具等待按日志边界尽量剔除；请求计时包含首 token 等待。包含日志已计入的推理 token，不重复相加。
 
-## 统计口径
+确认后是固定快照，不随新消息改变。再次确认可更新快照；点击面板“返回最近响应”，或状态栏右键“返回最近响应统计”，即可恢复实时视图。完整历史按需读取，包含续聊日志片段，不受实时采集最近 8 MiB 的限制。
 
-| 项目 | 含义 |
+<details>
+<summary>界面示例（人工样例，不含真实对话）</summary>
+
+![首尾消息区间统计面板](docs/images/dashboard.jpg)
+
+</details>
+
+## 跨平台面板
+
+需要已有 **Python 3.10+（含 SQLite 标准库）**，无需 pip 依赖。下载 dashboard 源码包或本仓库，完整解压后运行：
+
+```sh
+python3 -I -X utf8 dashboard.py
+# macOS / Linux 的启动脚本
+sh start-dashboard.sh
+```
+
+Windows 可双击运行启动脚本，或在 PowerShell 中执行：
+
+```powershell
+.\StartDashboard.ps1
+# 指定现有 Python
+.\StartDashboard.ps1 -PythonExecutable 'C:\path\to\python.exe'
+```
+
+面板支持 Windows、macOS、Linux 上有兼容本地日志的 Desktop / CLI / IDE 对话；不依赖当前窗口标题或界面语言。点击“小窗”可打开独立浏览器窗口，使用系统窗口边框拖动和调整大小。macOS/Linux 不提供原生底部悬浮条，面板需手动选择对话。
+
+从 Windows 状态栏打开的面板还可点击 **“将此对话固定到 Windows 状态栏”**：按准确 ID 固定并置顶显示，适用于 CLI、IDE，或桌面标题识别暂不可用的情况。固定和自动模式分别保存布局，右键“解除固定，自动跟随桌面对话”可恢复自动模式。
+
+```sh
+# 自定义 Codex 数据目录
+python3 dashboard.py --codex-home /path/to/.codex
+# 离线日志、无数据库；可重复指定 --log 读取多个续聊片段
+python3 dashboard.py --log /path/to/rollout.jsonl
+# WSL / SSH / 无图形界面
+python3 dashboard.py --no-browser --port 8765
+```
+
+服务只监听 `127.0.0.1`，使用随机本地访问凭据，无外部资源和遥测。SSH 使用相同端口的本地转发，详见 [兼容范围](docs/COMPATIBILITY.md)。纯云端且没有可读本地日志的对话无法统计。其他可运行兼容 Python 的架构具备源码入口，未实机验证的平台不视为已验收。
+
+## Windows 原生状态栏
+
+便携包包含对应 CPU 的私有 Python，无需安装运行时或 pip 包。保留解压后的所有文件，运行 `CodexTokenHud.exe`，将本地 Codex Desktop 对话切到前台。
+
+- x64：Windows 10/11 与 .NET Framework 4.8，本机已验证。
+- ARM64：已有匹配 Python 的打包选项；原生运行需兼容 .NET Framework 4.8.1 或仿真环境，未在 ARM64 硬件验证。
+- x86：提供 32 位 Python 包，主要用于浏览器/命令行入口；Codex Desktop 自身不一定支持该架构。
+
+程序为 AnyCPU 构建，仍未签名。为读取管理员运行的 Codex，无障碍访问需要匹配权限，管理员账号可能看到 UAC 提示。把状态条中间拖动到需要的位置；拖动边缘或角落改变大小，布局自动保存。
+
+**“立即刷新数据”会重新扫描本地日志、查找新的续聊片段并重读最新文件。** 状态栏显示“正在重新读取日志”“已刷新 · 无新计数”或具体失败状态。刷新不能让 Codex 提前产生尚未写入的 token 计数。采集器不响应时会自动重连。
+
+可选开机启动：托盘菜单，或以管理员 PowerShell 运行 `Install.ps1`。`Uninstall.ps1` 仅删除本副本创建的任务与快捷方式，保留布局。退出状态栏会同时停止它的采集器和统计服务。
+
+## 实时数据含义
+
+| 字段 | 含义 |
 | --- | --- |
-| 模型 | 当前本地对话最近记录的模型 |
-| tok/s | 最近一次已完成模型响应的输出 token ÷ 生成时间，推理 token 只计一次 |
-| 缓存 | 同一次响应的缓存输入 token ÷ 全部输入 token |
-| 更新时间 | 统计产生时间；新一轮待统计或数据过期时隐藏旧数值 |
-| 本对话周额度 | 暂无数据；本地记录不提供按对话归属的周额度扣减值或额度总量 |
+| 模型 | 当前本地对话最近记录的模型；区间混用模型时列出涉及的模型 |
+| 速率 tok/s | 最近一次完成响应的输出 token / 生成秒数 |
+| 缓存 | 同一响应的 cached_input_tokens / input_tokens |
+| 更新时间 | 已完成响应的记录时间；超过 15 分钟、切换模型、新一轮尚无计数时隐藏旧值 |
+| 本对话周额度 | 暂无数据；服务没有提供按对话归属的周额度扣减及总额 |
 
-**速率是一次响应的平均值，计数在响应完成后到达。** 有流式条目时间时从最早的模型条目开始计时；缺少该时间时使用请求区间，包含首 token 等待。日志边界允许时排除工具执行时间。悬停查看计时依据和完整统计时间。
+实时视图是最近响应的平均值，响应结束后才有计数，不是逐 token 瞬时速度。采集器每 100 ms 检查新记录，至少每秒发布心跳；状态栏每 150 ms 更新，约每 350 ms 检查当前对话；浏览器每秒更新。续聊文件目录每 2 秒重新发现，手动刷新立即扫描。新对话、无记录、日志不可读或数据库不兼容会明确显示状态；有日志时面板可绕过数据库选择。
 
-新一轮尚无计数、模型切换、统计超过 15 分钟、采集器失联时显示 `--`。缓存比例衡量输入 token 的缓存占比，不代表缓存请求成功率。不能把 token 数、API 价格或账号整体已用百分比当作“当前对话消耗的周额度百分比”，本工具不估算该值。
+## 命令行报告
 
-后台每 100 毫秒检查新记录，至少每秒发布一次心跳；界面每 150 毫秒刷新，约每 350 毫秒检查当前对话。Codex 写入统计本身可能更晚。
+```sh
+python3 stats.py --list
+python3 stats.py --thread THREAD_ID --start '2026-10-09T10:00:00+08:00' --end '2026-10-09T11:00:00+08:00'
+python3 stats.py --thread THREAD_ID --messages '消息片段'
+python3 stats.py --thread THREAD_ID --first FIRST_MESSAGE_ID --last LAST_MESSAGE_ID
+```
 
-## 本地数据与设置
+输出为本地 JSON，适合无桌面环境。`--messages` 会显示用户消息片段供选择，请勿公开该输出。
 
-- 只读打开兼容的 `state_*.sqlite`，查询对话元数据，读取所选对话最近的 JSONL 日志。解析过程会经过消息文本，但不导出或另存聊天正文。
-- 程序运行时没有网络请求、遥测、凭证读取或账号额度查询，也不写入 Codex 数据。开发者的打包脚本会从 python.org 下载 Python 并校验固定 SHA256。
-- 布局和派生统计保存在 `%LOCALAPPDATA%\CodexTokenHud`。其中包含对话标题、ID 和本机路径，**不要上传这个目录**。
-- Codex 数据目录默认 `%USERPROFILE%\.codex`，支持 `CODEX_HOME`。
-- 如需覆盖 Python 或 Codex 目录，将 `settings.example.json` 复制为 EXE 旁或数据目录中的 `settings.json`，设置 `pythonw`、`codex_home`。数据目录配置优先；相对 Python 路径以 EXE 目录为起点。不配置时优先使用便携包内 Python，其次搜索 PATH。
-- 开发时可用 `CODEX_TOKEN_HUD_HOME` 隔离数据目录。旧版 EXE 旁的布局会在首次运行时复制到新位置。
+## 数据与开发
 
-## 兼容性与排错
-
-已在 Windows、Codex Desktop 26.930.7945、150% 缩放下验证。当前通过无障碍标题栏和本地对话标题匹配，支持中文、英文标题栏；其他语言和未来布局尚未验证。同名对话需要右键明确选择，不会猜测。Codex 更新后，内部布局变化可能需要适配。
-
-本版本支持有可读日志的**本地桌面对话**。CLI/VS Code 窗口、纯云端对话、macOS、Linux 和 ARM64 原生版本尚不支持。只有托盘图标时，请将本地 Codex 对话窗口切到前台，检查工具和 Codex 的权限是否匹配。新对话或闲置对话可能没有当前样本；数据库不兼容或日志不可读会显示相应状态。
-
-更多验证边界见 [验证记录](docs/VALIDATION.md)、[隐私说明](PRIVACY.md)、[更新日志](CHANGELOG.md)。提交问题时只提供脱敏或人工构造的样例，请勿上传真实会话日志、认证文件或凭证。
-
-## 开发与构建
-
-从源码仓库构建，需要 Windows x64、Windows 自带的 .NET Framework 4.x 编译器，以及 Python 3.10+。后台仅使用标准库。便携包用户不需要构建源码。
+默认读取 `~/.codex`，支持 `CODEX_HOME`、`--codex-home`、归档日志和显式离线日志。Windows 状态栏另支持 `settings.example.json` 中的 Python 与数据路径设置。派生统计和布局保存在 Windows 的 `%LOCALAPPDATA%\CodexTokenHud`、macOS 的 `~/Library/Application Support/CodexTokenHud`、Linux 的 `~/.local/state/codex-token-hud`，可用 `CODEX_TOKEN_HUD_HOME` 覆盖。不要上传这些目录、真实会话、认证文件或含聊天正文的截图。完整说明见 [隐私](PRIVACY.md)。
 
 ```powershell
-.\Test.ps1
 .\Build.ps1
-.\Start.ps1
+.\Test.ps1
+.\Package.ps1 -Architecture x64
+# 跨架构产物，不在构建机执行目标架构冒烟测试
+.\Package.ps1 -Architecture arm64 -SkipTests -SkipSmokeTest
+.\Package.ps1 -Architecture x86 -SkipTests -SkipSmokeTest
 ```
 
-Python 不在 PATH 时使用 `Build.ps1 -PythonExecutable 'C:\path\to\python.exe'`，它会生成不入库的本地配置。运行中的 EXE 重新编译前先执行 `Stop.ps1`；也可 `Build.ps1 -OutputDirectory build\app` 编译到其他目录。
-
-```powershell
-.\Package.ps1
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 PackageDashboard.py
 ```
 
-打包会运行测试、编译、按白名单复制文件、下载并验证固定 Python 便携运行时，再在不依赖系统 Python 的条件下验证解压后的发布包。输出位于 `dist/`，不入 Git。参见 [贡献指南](CONTRIBUTING.md) 和 [发布步骤](docs/RELEASING.md)。
+Windows 构建使用已有 Framework 编译器（优先 64 位，回退 32 位），运行中的 EXE 先用 `Stop.ps1` 退出，或构建到 `Build.ps1 -OutputDirectory build\app`。打包按白名单复制，下载固定 Python 并校验下载摘要；`-SkipTests -SkipSmokeTest` 可在已经做过针对性验证时避免重复全量检查。GitHub Actions 配置了 Windows 检查和 macOS/Linux 的采集、区间统计、本地 HTTP 检查；是否实际通过以具体运行结果为准。
 
-GitHub Actions 配有 Windows 下 Python 3.10 / 3.12 / 3.14 的测试与构建，以及版本标签触发的**草稿预发布**流程。[首次托管 CI](https://github.com/drkang7/codex-token-hud/actions/runs/37492761938) 已于 2026-10-07 通过全部三组测试和便携包构建。实际 Codex 窗口的验证范围另见验证记录。
-
-## 许可证
-
-项目采用 [MIT](LICENSE)。便携包包含的 CPython 使用其原有许可，完整保留在 `python/LICENSE.txt`，见 [第三方说明](THIRD_PARTY_NOTICES.md)。
+[兼容范围](docs/COMPATIBILITY.md) · [验证记录](docs/VALIDATION.md) · [更新日志](CHANGELOG.md) · [MIT 许可](LICENSE)
