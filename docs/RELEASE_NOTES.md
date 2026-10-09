@@ -1,4 +1,6 @@
-# Codex Token HUD 1.3.0-beta.2
+# Codex Token HUD 1.3.0-beta.3
+
+Windows display fix: checks actual native visibility/topmost state, repairs inconsistent z-order and restores minimized startup without taking focus. Starting another copy, double-clicking the tray icon or choosing **显示状态栏** brings back the existing strip. Launchers and new shortcuts use normal display; legacy minimized shortcuts are recovered by the app. Native-state regressions supplement the earlier unpin lifecycle checks; shared Python statistics are unchanged.
 
 Windows fix: unpinning keeps a visible waiting strip until automatic discovery finds a foreground window. Both right-click menus always retain the ID-pinning entry. The HUD is independent of the followed window's lifetime and does not display the formerly pinned chat's measurements while waiting. Twelve targeted binding/lifecycle checks passed locally; shared Python analysis is unchanged from beta.1.
 

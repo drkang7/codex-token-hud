@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0-beta.3 — 2026-10-10
+
+Fixed the Windows process remaining alive while its strip was hidden or covered. Display recovery checks native visibility and topmost state, resets an inconsistent native z-order band, and restores minimized launches without taking focus. The launcher and newly created shortcuts request normal display. Starting another copy asks the existing instance to show; the tray now offers **显示状态栏**, and double-click shows and refreshes. Startup keeps a waiting strip accessible until Codex is foreground. Diagnostics include the HUD handle, actual visibility/topmost/minimized state, DWM cloaking and display errors. Added focused native-state regressions; shared Python statistics are unchanged.
+
 ## 1.3.0-beta.2 — 2026-10-10
 
 Fixed the Windows strip disappearing after unpinning while automatic window discovery is pending. The strip remains visible with an explicit waiting state, clears the former conversation's measurements and keeps its position. The ID-pinning entry is now always available in both the strip and tray menus. The HUD no longer assigns a foreign Codex window as its native owner, preventing that window's destruction from destroying the HUD. Obsolete inspection results are discarded after mode changes.

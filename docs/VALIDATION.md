@@ -1,5 +1,11 @@
 # Validation and limits
 
+## 1.3.0-beta.3 — native Windows display checks on 2026-10-10
+
+Twenty-one focused own-form checks passed on the current Windows x64 host. The added cases reproduce WinForms' cached visibility/topmost differing from native state, a topmost style inconsistent with the native z-order band, hidden windows, and minimized legacy launches. Recovery verifies native visibility/topmost and unchanged foreground focus. The earlier unpin, ID-picker and window-lifetime cases also passed. Fixtures use temporary data and this test's own forms; they do not control Codex. Failed restore attempts were corrected before this passing run.
+
+The final rebuilt installed copy was deliberately launched minimized and then launched again. Its native status confirmed a visible topmost, non-minimized, uncloaked HUD with no display error; the second launcher exited and the same existing instance acknowledged the show request. During diagnosis the user also reported seeing the strip. These observations cover this local host, not additional machines. The earlier beta.2 application's managed `Visible` property had been insufficient evidence of actual display; beta.3 records native state instead. Shared Python code is unchanged, so the shared-code matrix and full-package smoke were not repeated.
+
 ## 1.3.0-beta.2 — targeted Windows checks on 2026-10-10
 
 Twelve own-form binding/lifecycle checks passed on the current Windows x64 host. They exercise a real menu unpin handler, visible waiting state and position, immediate clearing of the former fixed selection and measurements, the permanent ID-pinning entry in both modes, waiting-strip movement without overwriting the automatic layout, discovery of the next conversation, waiting for the discovered process to be foreground, and the followed window closing without destroying the HUD. Fixtures use temporary local data and this test's own forms; they do not automate Codex's UI. AnyCPU compilation succeeded. No Python parser changes or full-package smoke rerun were needed; the beta.1 cross-platform CI below remains the shared-code evidence.

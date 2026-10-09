@@ -19,7 +19,7 @@ $taskLink = $taskShell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('
 $taskLink.TargetPath = $taskExe
 $taskLink.WorkingDirectory = $taskRoot
 $taskLink.Description = '显示当前 Codex 对话的 token 速率与缓存命中率，支持拖动和调整大小'
-$taskLink.WindowStyle = 7
+$taskLink.WindowStyle = 1
 $taskLink.Save()
 [Runtime.InteropServices.Marshal]::FinalReleaseComObject($taskLink) | Out-Null
 [Runtime.InteropServices.Marshal]::FinalReleaseComObject($taskShell) | Out-Null

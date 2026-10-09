@@ -13,7 +13,7 @@ using CodexTokenHud;
 class HudBindingTests
 {
     const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr window, uint command);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
     static int checks;
     static object Call(Hud hud, string name, params object[] args)
     { return typeof(Hud).GetMethod(name, Private).Invoke(hud, args); }
@@ -54,14 +54,35 @@ class HudBindingTests
                     {"model", "fixture-model"}, {"stage", "idle"},
                     {"last", new Dictionary<string, object> {
                         {"model", "fixture-model"}, {"measured_at_ms", now - 1000}, {"rate", 22.0}, {"cache_percent", 75.0} }} }} });
-            Call(hud, "SyncManualBinding");
-            Call(hud, "UpdateMetrics");
+            hud.StartMonitoring();
+            Check(Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle) &&
+                (string)Field(hud, "rateText") == "22.0", "startup shows the fixed conversation as a native topmost window");
+            var foreground = Native.GetForegroundWindow();
+            Native.SetWindowPos(hud.Handle, new IntPtr(-2), 0, 0, 0, 0, 0x13);
+            Check(hud.TopMost && !Native.IsTopmost(hud.Handle), "fixture reproduces cached TopMost differing from Windows");
             Call(hud, "PositionHud");
-            Check(hud.Visible && (string)Field(hud, "rateText") == "22.0", "fixed conversation is visible");
+            Check(Native.IsTopmost(hud.Handle) && Native.GetForegroundWindow() == foreground,
+                "positioning repairs native topmost without taking focus");
+            Native.SetWindowLongPtr(hud.Handle, -20, new IntPtr(Native.GetWindowLongPtr(hud.Handle, -20).ToInt64() & ~8L));
+            Call(hud, "PositionHud");
+            Check(Native.IsTopmost(hud.Handle) && Native.GetForegroundWindow() == foreground,
+                "positioning repairs a topmost style inconsistent with the native z-order band");
+            Native.SetWindowPos(hud.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x97);
+            Check(hud.Visible && !Native.IsWindowVisible(hud.Handle), "fixture reproduces a natively hidden managed-visible strip");
+            Call(hud, "PositionHud");
+            Check(Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle) && Native.GetForegroundWindow() == foreground,
+                "positioning repairs native visibility without taking focus");
+            ShowWindow(hud.Handle, 7);
+            Check(Native.IsIconic(hud.Handle), "fixture reproduces a minimized legacy shortcut launch");
+            foreground = Native.GetForegroundWindow();
+            Call(hud, "PositionHud");
+            Check(!Native.IsIconic(hud.Handle) && Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle) &&
+                Native.GetForegroundWindow() == foreground, "positioning restores a minimized strip without taking focus");
             Check(Item(hud, "按对话 ID 固定状态栏…") != null, "fixed mode has ID picker entry");
             var pinnedBounds = hud.Bounds;
             Item(hud, "解除固定，自动跟随桌面对话").PerformClick();
-            Check(!hud.IsDisposed && hud.Visible && hud.Bounds == pinnedBounds, "unpin retains a visible live form and position");
+            Check(!hud.IsDisposed && Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle) &&
+                hud.Bounds == pinnedBounds, "unpin retains a native visible topmost live form and position");
             var selection = Json.Read(Path.Combine(config.Runtime, "selection.json"));
             Check(Json.Text(selection, "binding_mode") == "auto" && string.IsNullOrEmpty(Json.Text(selection, "thread_id")),
                 "unpin clears the previous fixed selection immediately");
@@ -83,19 +104,27 @@ class HudBindingTests
                 Call(hud, "PositionHud");
                 Check(Json.Text(Json.Read(Path.Combine(config.Runtime, "selection.json")), "title") == "Next fixture",
                     "automatic discovery can bind the next conversation");
-                Check(hud.Visible && (bool)Field(hud, "waitingForAutoFocus"),
+                Check(Native.IsWindowVisible(hud.Handle) && (bool)Field(hud, "waitingForAutoFocus"),
                     "unpin keeps the strip accessible while the discovered window is in the background");
                 Call(hud, "UpdateView", new ViewSnapshot { Handle = owner.Handle,
                     ProcessId = Native.ProcessId(Native.GetForegroundWindow()), Title = "Next fixture", Primary = true });
                 Call(hud, "PositionHud");
-                Check(!(bool)Field(hud, "waitingForAutoFocus") && hud.TopMost,
+                Check(!(bool)Field(hud, "waitingForAutoFocus") && Native.IsTopmost(hud.Handle),
                     "automatic tracking resumes above the matching foreground process");
-                Check(GetWindow(hud.Handle, 4) == IntPtr.Zero, "HUD has no foreign window owner");
+                Check(Native.GetWindow(hud.Handle, 4) == IntPtr.Zero, "HUD has no foreign window owner");
+                hud.Hide();
+                string showRequest = Path.Combine(config.Runtime, "show.request.json");
+                Json.Write(showRequest, new Dictionary<string, object> {{"requested_at", DateTime.UtcNow.ToString("o")}});
+                Call(hud, "ConsumeShowRequest");
+                Check(!File.Exists(showRequest) && Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle),
+                    "repeat-launch request is consumed and restores the native window");
+                Check(Item(hud, "显示状态栏") != null, "tray menu retains a show-strip recovery entry");
                 owner.Close();
                 Call(hud, "UpdateView", new object[] { null });
                 Call(hud, "UpdateMetrics");
                 Call(hud, "PositionHud");
-                Check(!hud.IsDisposed && hud.Visible, "loss of the followed window returns to waiting instead of exiting");
+                Check(!hud.IsDisposed && Native.IsWindowVisible(hud.Handle) && Native.IsTopmost(hud.Handle),
+                    "loss of the followed window returns to native visible waiting instead of exiting");
             }
             Console.WriteLine("Binding checks passed: " + checks);
             return 0;

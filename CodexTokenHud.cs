@@ -32,12 +32,28 @@ namespace CodexTokenHud
         [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] internal static extern IntPtr GetDesktopWindow();
         [DllImport("user32.dll")] internal static extern IntPtr GetAncestor(IntPtr h, uint flags);
+        [DllImport("user32.dll")] internal static extern IntPtr GetWindow(IntPtr h, uint command);
+        [DllImport("user32.dll", SetLastError = true)] internal static extern bool SetWindowPos(IntPtr h, IntPtr after,
+            int x, int y, int width, int height, uint flags);
+        [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")] private static extern IntPtr GetWindowLong64(IntPtr h, int index);
+        [DllImport("user32.dll", EntryPoint="GetWindowLongW")] private static extern int GetWindowLong32(IntPtr h, int index);
+        [DllImport("dwmapi.dll")] private static extern int DwmGetWindowAttribute(IntPtr h, uint attribute, out int value, int size);
         [DllImport("user32.dll")] internal static extern uint GetDpiForWindow(IntPtr h);
         [DllImport("user32.dll")] internal static extern bool SetProcessDpiAwarenessContext(IntPtr context);
         [DllImport("user32.dll", EntryPoint="SetWindowLongPtrW")] private static extern IntPtr SetWindowLong64(IntPtr h, int index, IntPtr value);
         [DllImport("user32.dll", EntryPoint="SetWindowLongW")] private static extern int SetWindowLong32(IntPtr h, int index, int value);
         internal static IntPtr SetWindowLongPtr(IntPtr h, int index, IntPtr value)
         { return IntPtr.Size == 8 ? SetWindowLong64(h, index, value) : new IntPtr(SetWindowLong32(h, index, value.ToInt32())); }
+        internal static IntPtr GetWindowLongPtr(IntPtr h, int index)
+        { return IntPtr.Size == 8 ? GetWindowLong64(h, index) : new IntPtr(GetWindowLong32(h, index)); }
+        internal static bool IsTopmost(IntPtr h)
+        { return (GetWindowLongPtr(h, -20).ToInt64() & 8) != 0; }
+        internal static int? Cloaked(IntPtr h)
+        {
+            try { int value; return DwmGetWindowAttribute(h, 14, out value, 4) == 0 ? (int?)value : null; }
+            catch (DllNotFoundException) { return null; }
+            catch (EntryPointNotFoundException) { return null; }
+        }
 
         internal static double Scale(IntPtr h)
         {
@@ -309,6 +325,8 @@ namespace CodexTokenHud
         private bool inspecting;
         private int inspectionGeneration;
         private bool waitingForAutoFocus;
+        private int displayError;
+        private DateTime lastShowRequest = DateTime.MinValue;
         private bool stopping;
         private Rectangle waitingBounds;
         private bool manualLayout;
@@ -364,7 +382,7 @@ namespace CodexTokenHud
             tray.Text = "Codex Token 状态条";
             tray.ContextMenuStrip = menu;
             tray.Visible = true;
-            tray.DoubleClick += delegate { RequestRefresh(); };
+            tray.DoubleClick += delegate { RequestShow(); RequestRefresh(); };
             ticker.Interval = 150;
             ticker.Tick += Tick;
             StartBackend();
@@ -390,7 +408,47 @@ namespace CodexTokenHud
                 return cp;
             }
         }
-        internal void StartMonitoring() { var unused = Handle; Hide(); }
+        internal void StartMonitoring()
+        {
+            var unused = Handle;
+            SyncManualBinding();
+            RequestShow();
+        }
+
+        private void RequestShow()
+        {
+            waitingForAutoFocus = string.IsNullOrEmpty(manualBindingId);
+            lastShowRequest = DateTime.UtcNow;
+            lastStatus = DateTime.MinValue;
+            nextInspection = DateTime.MinValue;
+            UpdateMetrics();
+            PositionHud();
+        }
+
+        private void ConsumeShowRequest()
+        {
+            string request = Path.Combine(runtime, "show.request.json");
+            if (!File.Exists(request)) return;
+            try { File.Delete(request); }
+            catch (IOException) { return; }
+            catch (UnauthorizedAccessException) { return; }
+            RequestShow();
+        }
+
+        private void EnsureShown()
+        {
+            TopMost = true;
+            if (!Visible) Show();
+            // WinForms caches Visible/TopMost; validate Windows' actual state, including hidden startup settings.
+            // Avoid changing an already correct z-order so our context menu remains above the strip.
+            bool topmost = Native.IsTopmost(Handle);
+            if (!topmost)
+                // Reset the native z-order band as well as the style: a repeated TOPMOST request alone can be a no-op.
+                Native.SetWindowPos(Handle, new IntPtr(-2), 0, 0, 0, 0, 0x13);
+            if (!Native.IsWindowVisible(Handle) || !topmost)
+                displayError = Native.SetWindowPos(Handle, new IntPtr(-1), 0, 0, 0, 0, 0x53) ? 0 : Marshal.GetLastWin32Error();
+            else displayError = 0;
+        }
 
         private void StartBackend()
         {
@@ -410,6 +468,7 @@ namespace CodexTokenHud
             if (stopping) return;
             data = Json.Read(Path.Combine(runtime, "metrics.json"));
             bool bindingChanged = SyncManualBinding();
+            ConsumeShowRequest();
             if (!string.IsNullOrEmpty(manualBindingId)) UpdateView(null);
             if (DateTime.UtcNow >= nextBackendCheck)
             {
@@ -461,7 +520,11 @@ namespace CodexTokenHud
             {
                 lastStatus = DateTime.UtcNow.AddSeconds(1);
                 Json.Write(Path.Combine(runtime, "status.json"), new Dictionary<string, object> {
-                    {"pid", Process.GetCurrentProcess().Id}, {"visible", Visible},
+                    {"pid", Process.GetCurrentProcess().Id}, {"visible", Native.IsWindowVisible(Handle)},
+                    {"managed_visible", Visible}, {"native_topmost", Native.IsTopmost(Handle)},
+                    {"minimized", Native.IsIconic(Handle)},
+                    {"hud_handle", Handle.ToInt64()}, {"cloaked", Native.Cloaked(Handle)}, {"display_error", displayError},
+                    {"last_show_request", lastShowRequest.ToString("o")},
                     {"window", view == null ? 0L : view.Handle.ToInt64()}, {"title", selectedTitle},
                     {"thread_id", Json.Text(data, "thread_id")}, {"rate_text", rateText},
                     {"model_text", modelText}, {"cache_text", cacheText}, {"weekly_text", weeklyText},
@@ -483,7 +546,7 @@ namespace CodexTokenHud
             if (bindingChanged)
             {
                 if (Visible) waitingBounds = Bounds;
-                Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
+                if (Native.GetWindow(Handle, 4) != IntPtr.Zero) Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
                 manualBindingId = manualId;
                 waitingForAutoFocus = string.IsNullOrEmpty(manualBindingId);
                 inspectionGeneration++;
@@ -565,8 +628,16 @@ namespace CodexTokenHud
 
         private void PositionHud()
         {
+            // A direct restore of a minimized WinForms window can activate it, even with a no-activate show command.
+            // Create a fresh hidden normal handle instead; EnsureShown uses the normal no-activate display path.
+            if (Native.IsIconic(Handle))
+            {
+                Hide();
+                WindowState = FormWindowState.Normal;
+                RecreateHandle();
+            }
             // Keep this window independent of Codex: destroying a foreign owner would destroy its owned HUD too.
-            Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
+            if (Native.GetWindow(Handle, 4) != IntPtr.Zero) Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
             if (waitingForAutoFocus && view != null && Native.ProcessId(Native.GetForegroundWindow()) == view.ProcessId)
                 waitingForAutoFocus = false;
             if (AwaitingView)
@@ -583,7 +654,7 @@ namespace CodexTokenHud
                         area.Bottom - height - (int)(7 * scale), width, height);
                 }
                 if (!sizingOrMoving) Bounds = waitingBounds;
-                if (!Visible) Show();
+                EnsureShown();
                 Invalidate();
                 return;
             }
@@ -615,7 +686,7 @@ namespace CodexTokenHud
             }
             if (!sizingOrMoving && Bounds != wanted) Bounds = wanted;
             if (!codexFocused) { if (Visible) Hide(); return; }
-            if (!Visible) Show();
+            EnsureShown();
             waitingBounds = Bounds;
             Invalidate();
         }
@@ -880,6 +951,7 @@ namespace CodexTokenHud
             menu.Items.Clear();
             var heading = menu.Items.Add((string.IsNullOrEmpty(manualBindingId) ? "当前：" : "固定：") + (string.IsNullOrEmpty(selectedTitle) ? "未识别对话" : selectedTitle));
             heading.Enabled = false;
+            menu.Items.Add("显示状态栏").Click += delegate { RequestShow(); };
             var candidates = Json.List(data, "matches").ToList();
             if (candidates.Count > 1)
             {
@@ -923,7 +995,7 @@ namespace CodexTokenHud
             link.TargetPath = Application.ExecutablePath;
             link.WorkingDirectory = folder;
             link.Description = "在 Codex 窗口底部显示当前对话的 token 速率和缓存命中率，支持拖动和缩放";
-            link.WindowStyle = 7;
+            link.WindowStyle = 1;
             link.Save();
             Marshal.FinalReleaseComObject(link);
             Marshal.FinalReleaseComObject(shell);
@@ -975,7 +1047,12 @@ namespace CodexTokenHud
             bool owner;
             using (var singleton = new Mutex(true, "Local\\CodexTokenHud-v1-" + Environment.UserName, out owner))
             {
-                if (!owner) return 0;
+                if (!owner)
+                {
+                    Json.Write(Path.Combine(configuration.Runtime, "show.request.json"), new Dictionary<string, object> {
+                        {"requested_at", DateTime.UtcNow.ToString("o")} });
+                    return 0;
+                }
                 try { Native.SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch { }
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
