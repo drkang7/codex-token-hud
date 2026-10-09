@@ -1,5 +1,11 @@
 # Validation and limits
 
+## 1.3.0-beta.2 — targeted Windows checks on 2026-10-10
+
+Twelve own-form binding/lifecycle checks passed on the current Windows x64 host. They exercise a real menu unpin handler, visible waiting state and position, immediate clearing of the former fixed selection and measurements, the permanent ID-pinning entry in both modes, waiting-strip movement without overwriting the automatic layout, discovery of the next conversation, waiting for the discovered process to be foreground, and the followed window closing without destroying the HUD. Fixtures use temporary local data and this test's own forms; they do not automate Codex's UI. AnyCPU compilation succeeded. No Python parser changes or full-package smoke rerun were needed; the beta.1 cross-platform CI below remains the shared-code evidence.
+
+The rebuilt installed copy also completed a pin/unpin round trip through its local dashboard API. Its own status record confirmed the same HUD process remained alive and visible in automatic mode, with the collector continuing to update. This is application-state evidence; no new visual acceptance on other machines is claimed.
+
 ## 1.3.0-beta.1 — local checks on 2026-10-10
 
 Targeted checks on Windows x64 / Python 3.14.8:

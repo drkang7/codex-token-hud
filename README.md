@@ -4,7 +4,7 @@
 
 Local Codex output speed and input cache statistics, with a native Windows HUD, a portable browser dashboard, and terminal reports.
 
-**Source version: 1.3.0-beta.1.** Independent project, unaffiliated with OpenAI. Reads local logs without changing Codex or uploading conversations.
+**Source version: 1.3.0-beta.2.** Independent project, unaffiliated with OpenAI. Reads local logs without changing Codex or uploading conversations.
 
 ![Windows HUD](docs/images/hud.png)
 
@@ -51,6 +51,8 @@ On Windows:
 The dashboard works with compatible local Desktop/CLI/IDE logs on Python-supported Windows, macOS and Linux architectures. It is independent of window titles, UI language and desktop accessibility. Select conversations manually. **小窗** opens a separate browser mini-window movable/resizable through the OS. There is no native floating HUD or automatic active-window binding on macOS/Linux.
 
 The panel opened from a running Windows HUD also offers **将此对话固定到 Windows 状态栏**: bind by exact conversation ID and keep the strip above other applications. This enables CLI/IDE conversations and provides a fallback for temporarily unavailable desktop title recognition. Pinned and automatic layouts are stored separately. **解除固定，自动跟随桌面对话** restores automatic tracking.
+
+The HUD and tray menus always include **按对话 ID 固定状态栏…**, opening this panel for conversation selection. Unpinning keeps the strip visible while automatic discovery is pending, with **正在识别当前对话** and no measurements from the formerly pinned chat. The HUD remains independent of the followed window, so closing or recreating that window cannot destroy it.
 
 For WSL, SSH or headless hosts, use `python3 dashboard.py --no-browser --port 8765`. Forward the same port with `ssh -L 8765:127.0.0.1:8765 user@host`, then open the exact printed URL on your own computer. See [compatibility details](docs/COMPATIBILITY.md). The server binds loopback only, validates Host/Origin, requires a per-process local token, and uses no external assets. Do not share its link.
 

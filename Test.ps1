@@ -23,5 +23,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Presentation test compilation failed.' }
     & $taskTestExe
     if ($LASTEXITCODE -ne 0) { throw 'Presentation tests failed.' }
+    & (Join-Path $taskRoot 'TestHudBinding.ps1') -PythonExecutable $PythonExecutable
     Write-Output 'All tests passed.'
 } finally { Pop-Location }

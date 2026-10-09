@@ -307,7 +307,10 @@ namespace CodexTokenHud
         private DateTime lastStatus = DateTime.MinValue;
         private DateTime nextBackendCheck = DateTime.MinValue;
         private bool inspecting;
+        private int inspectionGeneration;
+        private bool waitingForAutoFocus;
         private bool stopping;
+        private Rectangle waitingBounds;
         private bool manualLayout;
         private bool sizingOrMoving;
         private double relativeX;
@@ -406,27 +409,7 @@ namespace CodexTokenHud
         {
             if (stopping) return;
             data = Json.Read(Path.Combine(runtime, "metrics.json"));
-            var manual = Json.Read(Path.Combine(runtime, "manual-binding.json"));
-            string manualId = Json.Text(manual, "thread_id");
-            bool bindingChanged = manualId != manualBindingId;
-            if (bindingChanged)
-            {
-                manualBindingId = manualId;
-                TopMost = !string.IsNullOrEmpty(manualBindingId);
-                var layout = Json.Read(LayoutPath);
-                if (layout.Count > 0 || string.IsNullOrEmpty(manualBindingId)) LoadLayout(layout);
-                else if (Left != 0 || Top != 0) {
-                    double dpi = Native.Scale(Handle);
-                    manualLayout = true;
-                    relativeX = Left / dpi; relativeY = Top / dpi;
-                    layoutWidth = Width / dpi; layoutHeight = Height / dpi;
-                }
-                else manualLayout = false;
-                view = null;
-                previousSelection = "";
-                pinnedId = null;
-                nextInspection = DateTime.MinValue;
-            }
+            bool bindingChanged = SyncManualBinding();
             if (!string.IsNullOrEmpty(manualBindingId)) UpdateView(null);
             if (DateTime.UtcNow >= nextBackendCheck)
             {
@@ -447,11 +430,13 @@ namespace CodexTokenHud
                 nextInspection = DateTime.UtcNow.AddMilliseconds(350);
                 var known = new HashSet<string>(Json.List(data, "threads").Select(t => Json.Text(t, "title")));
                 var preferred = view;
+                int generation = inspectionGeneration;
                 Task.Run(delegate { return Inspector.Find(preferred, known); }).ContinueWith(task => {
                     if (stopping || IsDisposed) return;
                     try { BeginInvoke(new Action(delegate {
                         inspecting = false;
-                        if (task.Status == TaskStatus.RanToCompletion) UpdateView(task.Result);
+                        if (generation == inspectionGeneration && string.IsNullOrEmpty(manualBindingId) &&
+                            task.Status == TaskStatus.RanToCompletion) UpdateView(task.Result);
                     })); } catch { }
                 });
             }
@@ -480,12 +465,53 @@ namespace CodexTokenHud
                     {"window", view == null ? 0L : view.Handle.ToInt64()}, {"title", selectedTitle},
                     {"thread_id", Json.Text(data, "thread_id")}, {"rate_text", rateText},
                     {"model_text", modelText}, {"cache_text", cacheText}, {"weekly_text", weeklyText},
+                    {"binding_mode", string.IsNullOrEmpty(manualBindingId) ? "auto" : "manual"},
+                    {"awaiting_view", AwaitingView},
                     {"layout_mode", manualLayout ? "manual" : "auto"},
                     {"freshness", freshnessText}, {"sample_age_ms", sampleAgeMs}, {"collector_age_ms", collectorAgeMs},
                     {"source", Json.Object(data, "source")},
                     {"stage", stageText}, {"left", Left}, {"top", Top}, {"width", Width}, {"height", Height},
                     {"updated_at", DateTime.UtcNow.ToString("o")} });
             }
+        }
+
+        private bool SyncManualBinding()
+        {
+            var manual = Json.Read(Path.Combine(runtime, "manual-binding.json"));
+            string manualId = Json.Text(manual, "thread_id");
+            bool bindingChanged = manualId != manualBindingId;
+            if (bindingChanged)
+            {
+                if (Visible) waitingBounds = Bounds;
+                Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
+                manualBindingId = manualId;
+                waitingForAutoFocus = string.IsNullOrEmpty(manualBindingId);
+                inspectionGeneration++;
+                TopMost = !string.IsNullOrEmpty(manualBindingId);
+                var layout = Json.Read(LayoutPath);
+                if (layout.Count > 0 || string.IsNullOrEmpty(manualBindingId)) LoadLayout(layout);
+                else if (Left != 0 || Top != 0) {
+                    double dpi = Native.Scale(Handle);
+                    manualLayout = true;
+                    relativeX = Left / dpi; relativeY = Top / dpi;
+                    layoutWidth = Width / dpi; layoutHeight = Height / dpi;
+                }
+                else manualLayout = false;
+                view = null;
+                previousSelection = "";
+                pinnedId = null;
+                nextInspection = DateTime.MinValue;
+                UpdateView(null);
+            }
+            return bindingChanged;
+        }
+
+        private void Unpin()
+        {
+            Json.Write(Path.Combine(runtime, "manual-binding.json"), new Dictionary<string, object>());
+            SyncManualBinding();
+            UpdateMetrics();
+            PositionHud();
         }
 
         private void UpdateView(ViewSnapshot snapshot)
@@ -531,12 +557,41 @@ namespace CodexTokenHud
             Process.Start(new ProcessStartInfo(url + "&thread=" + Uri.EscapeDataString(Json.Text(data, "thread_id"))) { UseShellExecute = true });
         }
 
+        private bool AwaitingView
+        {
+            get { return view == null || !Native.IsWindow(view.Handle) || Native.IsIconic(view.Handle) || !Native.IsWindowVisible(view.Handle) ||
+                (waitingForAutoFocus && Native.ProcessId(Native.GetForegroundWindow()) != view.ProcessId); }
+        }
+
         private void PositionHud()
         {
-            if (view == null || !Native.IsWindow(view.Handle) || Native.IsIconic(view.Handle) || !Native.IsWindowVisible(view.Handle))
-            { if (Visible) Hide(); return; }
+            // Keep this window independent of Codex: destroying a foreign owner would destroy its owned HUD too.
+            Native.SetWindowLongPtr(Handle, -8, IntPtr.Zero);
+            if (waitingForAutoFocus && view != null && Native.ProcessId(Native.GetForegroundWindow()) == view.ProcessId)
+                waitingForAutoFocus = false;
+            if (AwaitingView)
+            {
+                TopMost = true;
+                scale = Native.Scale(Handle);
+                MinimumSize = new Size((int)(420 * scale), (int)(32 * scale));
+                var area = Screen.FromHandle(Handle).WorkingArea;
+                if (waitingBounds.IsEmpty)
+                {
+                    int width = Math.Max(MinimumSize.Width, Math.Min(area.Width - (int)(14 * scale), (int)(layoutWidth * scale)));
+                    int height = Math.Max(MinimumSize.Height, (int)(layoutHeight * scale));
+                    waitingBounds = new Rectangle(area.Left + (area.Width - width) / 2,
+                        area.Bottom - height - (int)(7 * scale), width, height);
+                }
+                if (!sizingOrMoving) Bounds = waitingBounds;
+                if (!Visible) Show();
+                Invalidate();
+                return;
+            }
+            // Focus checks below hide automatic mode elsewhere; keep the independent HUD above the focused Codex window.
+            TopMost = true;
             IntPtr foreground = Native.GetForegroundWindow();
-            bool codexFocused = !string.IsNullOrEmpty(manualBindingId) || Native.ProcessId(foreground) == view.ProcessId || foreground == Handle || menu.Visible;
+            bool codexFocused = !string.IsNullOrEmpty(manualBindingId) || Native.ProcessId(foreground) == view.ProcessId ||
+                Native.ProcessId(foreground) == (uint)Process.GetCurrentProcess().Id || menu.Visible;
             Native.Rect client;
             Native.Point origin = new Native.Point();
             if (!Native.GetClientRect(view.Handle, out client) || !Native.ClientToScreen(view.Handle, ref origin)) return;
@@ -559,9 +614,9 @@ namespace CodexTokenHud
                 wanted.Y = Math.Max(area.Top, Math.Min(wanted.Y, area.Bottom - (int)(32 * scale)));
             }
             if (!sizingOrMoving && Bounds != wanted) Bounds = wanted;
-            Native.SetWindowLongPtr(Handle, -8, string.IsNullOrEmpty(manualBindingId) ? view.Handle : IntPtr.Zero);
             if (!codexFocused) { if (Visible) Hide(); return; }
             if (!Visible) Show();
+            waitingBounds = Bounds;
             Invalidate();
         }
 
@@ -586,6 +641,14 @@ namespace CodexTokenHud
             cacheText = display.Cache;
             stageText = display.Stage;
             freshnessText = display.Freshness;
+            if (string.IsNullOrEmpty(manualBindingId) && AwaitingView)
+            {
+                modelText = "正在识别当前对话";
+                rateText = "--";
+                cacheText = "缓存 待绑定";
+                stageText = "等待窗口识别";
+                freshnessText = "自动跟随 · 可右键固定";
+            }
             if (!string.IsNullOrEmpty(manualBindingId)) freshnessText = "固定 · " + freshnessText;
             if (refreshRequestedAt != DateTime.MinValue)
             {
@@ -733,6 +796,7 @@ namespace CodexTokenHud
 
         private void SaveLayout()
         {
+            if (AwaitingView) { waitingBounds = Bounds; return; }
             if (!manualLayout || view == null || !Native.IsWindow(view.Handle)) return;
             Native.Point origin = new Native.Point();
             if (!Native.ClientToScreen(view.Handle, ref origin)) return;
@@ -748,6 +812,7 @@ namespace CodexTokenHud
         private void ResetLayout()
         {
             manualLayout = false;
+            waitingBounds = Rectangle.Empty;
             Json.Write(LayoutPath, new Dictionary<string, object> {{"mode", "auto"}});
             PositionHud();
         }
@@ -830,10 +895,9 @@ namespace CodexTokenHud
             var refresh = menu.Items.Add("立即刷新数据");
             refresh.Click += delegate { RequestRefresh(); };
             menu.Items.Add("区间统计：按时间或首尾消息…").Click += delegate { OpenDashboard(); };
+            menu.Items.Add("按对话 ID 固定状态栏…").Click += delegate { OpenDashboard(); };
             if (!string.IsNullOrEmpty(manualBindingId))
-                menu.Items.Add("解除固定，自动跟随桌面对话").Click += delegate {
-                    Json.Write(Path.Combine(runtime, "manual-binding.json"), new Dictionary<string, object>());
-                };
+                menu.Items.Add("解除固定，自动跟随桌面对话").Click += delegate { Unpin(); };
             if (Json.Object(data, "range") != null)
                 menu.Items.Add("返回最近响应统计").Click += delegate {
                     Json.Write(Path.Combine(runtime, "range-result.json"), new Dictionary<string, object>());

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0-beta.2 — 2026-10-10
+
+Fixed the Windows strip disappearing after unpinning while automatic window discovery is pending. The strip remains visible with an explicit waiting state, clears the former conversation's measurements and keeps its position. The ID-pinning entry is now always available in both the strip and tray menus. The HUD no longer assigns a foreign Codex window as its native owner, preventing that window's destruction from destroying the HUD. Obsolete inspection results are discarded after mode changes.
+
+Added 12 targeted own-form binding/lifecycle checks, including the discovered window remaining in the background after unpinning. Waiting-strip movement does not overwrite the separately saved automatic layout. Shared Python statistics are unchanged.
+
 ## 1.3.0-beta.1 — 2026-10-10
 
 Added a local browser panel for selecting a time interval or the first/last user messages. Confirmation calculates output-token/time-weighted speed and input-token-weighted cache fraction over complete history, including the last selected message's responses. Missing telemetry is excluded separately with coverage counts. Confirmed results are fixed snapshots, synchronized to the matching Windows HUD; users can return to the latest response.

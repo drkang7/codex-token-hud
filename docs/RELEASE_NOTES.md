@@ -1,4 +1,6 @@
-# Codex Token HUD 1.3.0-beta.1
+# Codex Token HUD 1.3.0-beta.2
+
+Windows fix: unpinning keeps a visible waiting strip until automatic discovery finds a foreground window. Both right-click menus always retain the ID-pinning entry. The HUD is independent of the followed window's lifetime and does not display the formerly pinned chat's measurements while waiting. Twelve targeted binding/lifecycle checks passed locally; shared Python analysis is unchanged from beta.1.
 
 Select a time interval or the first/last user messages, then confirm to see weighted average output speed and cache hit fraction across complete local history. Includes the last selected message's responses, handles resumed log segments, and reports missing-data coverage. The matching Windows HUD can show the confirmed range or return to the latest response.
 
