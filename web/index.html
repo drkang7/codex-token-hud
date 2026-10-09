@@ -3,60 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Codex Token HUD · 区间统计</title>
+  <meta name="color-scheme" content="dark">
+  <title>Codex Token HUD · 对话统计</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
   <div class="shell">
-    <header>
-      <div><div class="eyebrow"><span class="dot"></span>LOCAL SESSION ANALYTICS</div><h1>Codex Token HUD</h1><p>把一段对话，变成可比较的数字。</p></div>
-      <div class="header-actions"><span class="local-tag">仅在本机</span><button id="refresh" class="secondary">立即刷新</button><button id="mini" class="secondary" title="打开独立小窗，可拖动和调整大小">小窗</button></div>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><h1>Codex Token HUD</h1><span class="page-name">对话统计</span></div>
+      <div class="header-actions"><span class="local-tag"><span class="dot" aria-hidden="true"></span>本地日志</span><button id="refresh" class="secondary" data-api><span class="button-symbol" aria-hidden="true">↻</span><span>立即刷新</span></button><button id="mini" class="secondary" title="打开可拖动和调整大小的独立窗口">打开小窗</button></div>
     </header>
-    <div id="notice" role="status" aria-live="polite">正在连接本地日志…</div>
+    <div id="notice" class="notice" role="status" aria-live="polite">正在连接本地日志…</div>
     <main>
-      <section class="selector panel">
-        <div class="section-heading"><span class="step">01</span><h2>选择对话</h2></div>
-        <label for="threadSearch">查找标题或对话 ID</label><input id="threadSearch" type="search" placeholder="输入关键词">
-        <select id="thread" aria-label="本地对话列表" size="6"></select>
-        <p id="threadMeta" class="muted">支持 Desktop、CLI、IDE 的本地日志</p>
-        <div class="section-heading range-heading"><span class="step">02</span><h2>确定统计范围</h2></div>
-        <div class="tabs" role="tablist" aria-label="范围选择方式"><button id="timeTab" role="tab" aria-selected="true">按时间段</button><button id="messageTab" role="tab" aria-selected="false">按首尾消息</button></div>
-        <div id="timePane">
-          <div class="presets"><button data-minutes="10">近 10 分钟</button><button data-minutes="60">近 1 小时</button><button id="allTime">全部记录</button></div>
-          <label for="start">开始时间</label><input id="start" type="datetime-local" step="1">
-          <label for="end">结束时间</label><input id="end" type="datetime-local" step="1">
-          <p class="muted">使用本机时区，包含起止时间内完成的响应。</p>
-        </div>
-        <div id="messagePane" hidden>
-          <label for="firstQuery">首条用户消息</label><div class="search-row"><textarea id="firstQuery" rows="2" placeholder="输入消息内容或片段"></textarea><button id="firstFind" class="secondary">查找</button></div>
-          <div id="firstCandidates" class="candidates"></div><p id="firstChosen" class="chosen">尚未选定</p>
-          <label for="lastQuery">末条用户消息</label><div class="search-row"><textarea id="lastQuery" rows="2" placeholder="输入消息内容或片段"></textarea><button id="lastFind" class="secondary">查找</button></div>
-          <div id="lastCandidates" class="candidates"></div><p id="lastChosen" class="chosen">尚未选定</p>
-          <p class="muted">包含两条消息及末条消息后的回答，截止到下一条用户消息之前。同样的文字可按时间区分。</p>
-        </div>
-        <button id="confirm" class="primary">确认范围并统计 <span>→</span></button>
-      </section>
+      <aside class="selector" aria-label="对话与统计范围">
+        <section class="conversation-selector" aria-labelledby="conversationHeading">
+          <div class="section-heading"><h2 id="conversationHeading">选择对话</h2><span id="threadMatchCount" class="section-meta"></span></div>
+          <label for="threadSearch" class="sr-only">查找标题或对话 ID</label><input id="threadSearch" type="search" placeholder="搜索标题或对话 ID" autocomplete="off">
+          <select id="thread" aria-label="本地对话列表" size="5"></select>
+          <p id="searchEmpty" class="field-note" hidden>没有匹配的对话，请调整关键词。当前选择仍保留。</p>
+          <p id="threadMeta" class="field-note">支持 Desktop、CLI、IDE 的本地日志</p>
+        </section>
+        <section class="range-selector" aria-labelledby="rangeHeading">
+          <div class="section-heading"><h2 id="rangeHeading">统计范围</h2></div>
+          <div class="tabs" role="tablist" aria-label="范围选择方式" data-mode="time"><button id="timeTab" role="tab" aria-selected="true" aria-controls="timePane">时间段</button><button id="messageTab" role="tab" aria-selected="false" aria-controls="messagePane" tabindex="-1">首尾消息</button></div>
+          <div id="timePane" role="tabpanel" aria-labelledby="timeTab">
+            <div class="presets"><button data-minutes="10">近 10 分钟</button><button data-minutes="60">近 1 小时</button><button id="allTime" data-api>全部记录</button></div>
+            <label for="start">开始时间</label><input id="start" type="datetime-local" step="1">
+            <label for="end">结束时间</label><input id="end" type="datetime-local" step="1">
+            <p class="field-note">按本机时区，统计在此期间完成的响应。</p>
+          </div>
+          <div id="messagePane" role="tabpanel" aria-labelledby="messageTab" hidden>
+            <label for="firstQuery">首条用户消息</label><div class="search-row"><textarea id="firstQuery" rows="2" placeholder="输入消息内容或片段"></textarea><button id="firstFind" class="secondary" data-api>查找</button></div>
+            <div id="firstCandidates" class="candidates" aria-label="首条消息搜索结果"></div><p id="firstChosen" class="chosen">尚未选定首条消息</p>
+            <label for="lastQuery">末条用户消息</label><div class="search-row"><textarea id="lastQuery" rows="2" placeholder="输入消息内容或片段"></textarea><button id="lastFind" class="secondary" data-api>查找</button></div>
+            <div id="lastCandidates" class="candidates" aria-label="末条消息搜索结果"></div><p id="lastChosen" class="chosen">尚未选定末条消息</p>
+            <p class="field-note">包含首尾消息及末条消息后的回答，截止到下一条用户消息之前。</p>
+          </div>
+          <p id="rangeError" class="field-error" role="alert" hidden></p>
+          <button id="confirm" class="primary" data-api data-busy-label="正在统计…"><span class="button-label">确认范围并统计</span><span aria-hidden="true">→</span></button>
+        </section>
+      </aside>
       <div class="results">
-        <section class="panel live-panel">
-          <div class="result-heading"><div><div class="eyebrow">LIVE</div><h2>最近完成的响应</h2></div><span id="liveState" class="badge">等待数据</span></div>
-          <p id="model" class="model">—</p>
-          <div class="live-metrics"><div><span class="metric-label">输出速率</span><div><strong id="liveRate">—</strong><span class="unit">tok/s</span></div></div><div><span class="metric-label">缓存命中率</span><div><strong id="liveCache">—</strong><span class="unit">%</span></div></div></div>
-          <p id="liveTime" class="muted">每秒检查新记录；响应完成后更新计数</p>
-          <button id="pinHud" class="text-button" hidden>将此对话固定到 Windows 状态栏</button>
-          <button id="unpinHud" class="text-button" hidden>解除固定，自动跟随桌面对话</button>
+        <div class="workspace-heading"><span>当前对话</span><h2 id="selectedThread">正在读取对话…</h2></div>
+        <section class="range-panel" data-has-range="false" aria-labelledby="resultHeading">
+          <div class="result-heading"><div><h2 id="resultHeading">区间平均值</h2><span id="rangeState" class="section-meta">尚未确认范围</span></div><button id="clearRange" class="secondary" data-api hidden><span class="button-symbol" aria-hidden="true">↶</span><span>返回最近响应</span></button></div>
+          <p id="rangeLabel" class="range-label">选择统计范围，然后点击确认。</p>
+          <div class="range-metrics"><div><span class="metric-label">平均输出速率</span><div class="metric-value"><strong id="rangeRate">—</strong><span class="unit">tok/s</span></div></div><div><span class="metric-label">平均缓存命中率</span><div class="metric-value"><strong id="rangeCache">—</strong><span class="unit">%</span></div><meter id="rangeCacheMeter" min="0" max="100" value="0" aria-label="区间平均缓存命中率" hidden></meter></div></div>
+          <div class="details"><div><span>完成响应</span><b id="count">—</b></div><div><span>总输出 token</span><b id="output">—</b></div><div><span>有效生成时间</span><b id="duration">—</b></div></div>
+          <div class="coverage-row"><span>统计覆盖</span><b id="coverage">确认后显示有效样本数</b></div>
+          <p id="rangeNote" class="field-note">确认后保留统计快照，再次确认可更新。</p>
         </section>
-        <section class="panel range-panel">
-          <div class="result-heading"><div><div class="eyebrow">SELECTED RANGE</div><h2>已确认范围的平均值</h2></div><button id="clearRange" class="text-button" hidden>返回最近响应</button></div>
-          <p id="rangeLabel" class="range-label">选择左侧范围，然后点击确认</p>
-          <div class="range-metrics"><div><span class="metric-label">平均输出速率</span><div><strong id="rangeRate">—</strong><span class="unit">tok/s</span></div></div><div><span class="metric-label">平均缓存命中率</span><div><strong id="rangeCache">—</strong><span class="unit">%</span></div></div></div>
-          <div class="details"><div><span>完成响应</span><b id="count">—</b></div><div><span>总输出 token</span><b id="output">—</b></div><div><span>有效生成时间</span><b id="duration">—</b></div><div><span>统计覆盖</span><b id="coverage">—</b></div></div>
-          <p id="rangeNote" class="muted">确认后的结果为固定快照，不会随新消息改变。可随时返回最近响应。</p>
+        <section class="live-panel" aria-labelledby="liveHeading">
+          <div class="result-heading"><h2 id="liveHeading">最近完成的响应</h2><span id="liveState" class="badge" data-state="waiting">等待数据</span></div>
+          <div class="live-content"><p id="model" class="model">—</p><div class="live-metrics"><div><span class="metric-label">输出速率</span><div class="metric-value"><strong id="liveRate">—</strong><span class="unit">tok/s</span></div></div><div><span class="metric-label">缓存命中率</span><div class="metric-value"><strong id="liveCache">—</strong><span class="unit">%</span></div></div></div></div>
+          <p id="liveTime" class="field-note">响应完成后更新计数</p>
         </section>
-        <aside class="formula"><span>怎么算？</span><p>平均速率 = 有效样本的总输出 token ÷ 总生成秒数<br>缓存命中率 = 总缓存输入 token ÷ 总输入 token</p><p>缺少计时或缓存数据的响应分别排除，并显示覆盖数量。工具等待尽量按日志边界剔除；请求计时会包含首 token 等待。</p></aside>
+        <section id="hudControls" class="hud-panel" aria-labelledby="hudHeading" hidden>
+          <div class="result-heading"><h2 id="hudHeading">Windows 状态栏</h2><span id="hudState" class="section-meta">自动跟随桌面对话</span></div>
+          <p id="hudBinding" class="field-note">固定对话后，切换到其他应用仍会显示状态栏。</p>
+          <div class="hud-actions"><button id="pinHud" class="secondary" data-api hidden>固定此对话到状态栏</button><button id="unpinHud" class="secondary" data-api hidden>解除固定，自动跟随桌面对话</button></div>
+        </section>
+        <details class="formula"><summary>统计方式与数据限制</summary><div><p>平均速率 = 有效样本的总输出 token ÷ 总生成秒数<br>缓存命中率 = 总缓存输入 token ÷ 总输入 token</p><p>缺少计时或缓存记录的响应分别排除，覆盖数量显示在结果中。工具等待按日志边界剔除；请求计时包含首 token 等待。</p><p>本对话周额度：服务暂未提供可精确统计的数据。</p></div></details>
       </div>
     </main>
-    <footer><span>LOCAL FIRST · NO CLOUD UPLOAD</span><span>本对话周额度：服务暂未提供可精确统计的数据</span></footer>
+    <footer><span>读取本地日志 · 聊天内容不上传云端</span></footer>
   </div>
 </body>
 </html>

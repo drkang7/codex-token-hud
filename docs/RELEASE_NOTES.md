@@ -1,4 +1,8 @@
-# Codex Token HUD 1.3.0-beta.3
+# Codex Token HUD 1.3.0-beta.4
+
+Dashboard UI update: range averages lead the workspace, latest-response values and Windows binding controls have separate sections, and the return/pin/unpin actions are recognizable filled buttons before hovering. Focus, pending requests, inline validation, keyboard tabs, narrow screens and mini-window layouts are handled explicitly. Binding state is reread from live metadata, including changes made from another window.
+
+Windows menu fix: **显示状态栏** is disabled while the strip is already displayed. Repeated show requests keep its current conversation instead of restarting automatic identification. A hidden or minimized strip can still be restored. See docs/UI_DESIGN.md and docs/VALIDATION.md for design and regression evidence.
 
 Windows display fix: checks actual native visibility/topmost state, repairs inconsistent z-order and restores minimized startup without taking focus. Starting another copy, double-clicking the tray icon or choosing **显示状态栏** brings back the existing strip. Launchers and new shortcuts use normal display; legacy minimized shortcuts are recovered by the app. Native-state regressions supplement the earlier unpin lifecycle checks; shared Python statistics are unchanged.
 

@@ -112,7 +112,13 @@ class HudBindingTests
                 Check(!(bool)Field(hud, "waitingForAutoFocus") && Native.IsTopmost(hud.Handle),
                     "automatic tracking resumes above the matching foreground process");
                 Check(Native.GetWindow(hud.Handle, 4) == IntPtr.Zero, "HUD has no foreign window owner");
+                var followed = Field(hud, "view");
+                Call(hud, "RequestShow");
+                Check(object.ReferenceEquals(followed, Field(hud, "view")) && !(bool)Field(hud, "waitingForAutoFocus") &&
+                    (string)Field(hud, "selectedTitle") == "Next fixture", "showing an already visible strip preserves its conversation binding");
+                Check(!Item(hud, "显示状态栏").Enabled, "show-strip action is unavailable when the strip is already displayed");
                 hud.Hide();
+                Check(Item(hud, "显示状态栏").Enabled, "show-strip action is available for a hidden strip");
                 string showRequest = Path.Combine(config.Runtime, "show.request.json");
                 Json.Write(showRequest, new Dictionary<string, object> {{"requested_at", DateTime.UtcNow.ToString("o")}});
                 Call(hud, "ConsumeShowRequest");

@@ -4,7 +4,7 @@
 
 Local Codex output speed and input cache statistics, with a native Windows HUD, a portable browser dashboard, and terminal reports.
 
-**Source version: 1.3.0-beta.3.** Independent project, unaffiliated with OpenAI. Reads local logs without changing Codex or uploading conversations.
+**Source version: 1.3.0-beta.4.** Independent project, unaffiliated with OpenAI. Reads local logs without changing Codex or uploading conversations.
 
 ![Windows HUD](docs/images/hud.png)
 

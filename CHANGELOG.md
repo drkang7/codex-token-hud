@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0-beta.4 — 2026-10-10
+
+Reworked the local statistics dashboard around conversation/range selection and prominent weighted results. Return-to-latest, Windows pin and unpin actions now have filled, bordered buttons visible without hovering, with 44px targets and explicit focus/busy/disabled states. Windows controls report automatic/current/other-conversation binding and update from live metadata. Added keyboard range tabs, inline validation that retains inputs, and invalidation of a selected message when its query is edited. The layout adapts to narrow screens and the mini-window; calculation details are collapsible.
+
+Fixed the redundant **显示状态栏** command resetting a strip that was already visible: both menus disable the command while displayed, and repeat-launch/tray show requests preserve the current conversation. Hidden/minimized window recovery remains available. Added three own-form regression cases. Shared token/time/cache formulas are unchanged.
+
 ## 1.3.0-beta.3 — 2026-10-10
 
 Fixed the Windows process remaining alive while its strip was hidden or covered. Display recovery checks native visibility and topmost state, resets an inconsistent native z-order band, and restores minimized launches without taking focus. The launcher and newly created shortcuts request normal display. Starting another copy asks the existing instance to show; the tray now offers **显示状态栏**, and double-click shows and refreshes. Startup keeps a waiting strip accessible until Codex is foreground. Diagnostics include the HUD handle, actual visibility/topmost/minimized state, DWM cloaking and display errors. Added focused native-state regressions; shared Python statistics are unchanged.

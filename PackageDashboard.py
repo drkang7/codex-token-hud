@@ -11,7 +11,7 @@ def main():
     files = ["metrics.py", "history.py", "dashboard.py", "stats.py", "VERSION", "LICENSE", "README.md",
              "README.zh-CN.md", "PRIVACY.md", "SECURITY.md", "CHANGELOG.md", "StartDashboard.ps1", "start-dashboard.sh"]
     files.extend(str(p.relative_to(root)) for p in (root / "web").glob("*.*"))
-    files.extend(["docs/COMPATIBILITY.md", "docs/VALIDATION.md", "docs/RELEASE_NOTES.md",
+    files.extend(["docs/COMPATIBILITY.md", "docs/VALIDATION.md", "docs/RELEASE_NOTES.md", "docs/UI_DESIGN.md",
                   "docs/images/hud.png", "docs/images/dashboard.jpg"])
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name in files:

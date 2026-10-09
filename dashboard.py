@@ -68,6 +68,8 @@ class Dashboard:
                     row = self.row(thread_id)
                 tail = self.tails.update(row, force=force)
                 return {"thread_id": thread_id, "metrics": tail.measurements.snapshot(), "source": tail.source(),
+                        "native_available": self.native_enabled,
+                        "pinned_thread_id": read_selection(self.runtime / "manual-binding.json").get("thread_id") if self.native_enabled else None,
                         "range": self.saved_range(thread_id), "updated_at_ms": time.time() * 1000}
             if endpoint == "messages":
                 history = self.histories.load(self.catalog, thread_id, force=query.get("force") == ["1"])

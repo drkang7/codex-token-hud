@@ -417,12 +417,22 @@ namespace CodexTokenHud
 
         private void RequestShow()
         {
-            waitingForAutoFocus = string.IsNullOrEmpty(manualBindingId);
             lastShowRequest = DateTime.UtcNow;
             lastStatus = DateTime.MinValue;
+            if (Displayed)
+            {
+                EnsureShown();
+                return;
+            }
+            waitingForAutoFocus = string.IsNullOrEmpty(manualBindingId);
             nextInspection = DateTime.MinValue;
             UpdateMetrics();
             PositionHud();
+        }
+
+        private bool Displayed
+        {
+            get { return Native.IsWindowVisible(Handle) && !Native.IsIconic(Handle) && (Native.Cloaked(Handle) ?? 0) == 0; }
         }
 
         private void ConsumeShowRequest()
@@ -951,7 +961,9 @@ namespace CodexTokenHud
             menu.Items.Clear();
             var heading = menu.Items.Add((string.IsNullOrEmpty(manualBindingId) ? "当前：" : "固定：") + (string.IsNullOrEmpty(selectedTitle) ? "未识别对话" : selectedTitle));
             heading.Enabled = false;
-            menu.Items.Add("显示状态栏").Click += delegate { RequestShow(); };
+            var show = menu.Items.Add("显示状态栏");
+            show.Enabled = !Displayed;
+            show.Click += delegate { RequestShow(); };
             var candidates = Json.List(data, "matches").ToList();
             if (candidates.Count > 1)
             {
