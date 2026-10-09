@@ -14,7 +14,9 @@ Targeted checks on Windows x64 / Python 3.14.8:
 
 The current local Codex installation is 26.1002.7124.0. Header discovery now accepts an exact known local chat title when menu wording has changed. Current native telemetry binding is checked separately from artificial average values.
 
-Windows x64 source, local server and UI were exercised. macOS/Linux CI jobs are configured but have not been run as part of local verification. ARM64 and x86 ZIPs are built candidates, not proof of execution on ARM64 hardware or a 32-bit OS. WSL was unavailable on this machine and was not installed. The portable source entry points remain conditional on an existing compatible Python runtime and readable local logs. No pure-cloud statistics, native macOS/Linux overlay, instantaneous per-token stream or per-conversation weekly quota measurement is claimed.
+The [GitHub CI run for commit cbbf986](https://github.com/drkang7/codex-token-hud/actions/runs/37965804033) passed on 2026-10-10 (Asia/Shanghai): Windows Python 3.10/3.12/3.14, Ubuntu Python 3.10, macOS Python 3.14, and Windows portable packaging. Each Python job ran all 34 collector/range/server tests; Windows jobs also ran the 19 C# checks and compiled AnyCPU. The initial run exposed two test assertions comparing path spelling instead of file identity (Windows short names and macOS aliases); they were corrected to check the actual file, then passed. Packaging did not repeat the test matrix or run an extra smoke test.
+
+Windows x64 source, local server and UI were exercised locally. macOS/Ubuntu CI validates shared code with synthetic logs, not those platforms' real Codex UI or every architecture. ARM64 and x86 ZIPs are built candidates, not proof of execution on ARM64 hardware or a 32-bit OS. WSL was unavailable on this machine and was not installed. The portable source entry points remain conditional on an existing compatible Python runtime and readable local logs. No pure-cloud statistics, native macOS/Linux overlay, instantaneous per-token stream or per-conversation weekly quota measurement is claimed.
 
 ## Earlier 1.2.0-beta.1 verification
 
