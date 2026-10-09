@@ -126,7 +126,7 @@ class HistoryTests(unittest.TestCase):
         newer = self.root / "sessions/b.jsonl"
         write_log(newer, response(10, 15, "b"), start=10)
         catalog.refresh(force=True)
-        self.assertEqual(catalog.title_matches("标题")[0]["rollout_path"], str(newer))
+        self.assertTrue(Path(catalog.title_matches("标题")[0]["rollout_path"]).samefile(newer))
         self.assertEqual(len(catalog.segments("t")), 2)
         self.assertEqual(HistoryCache().load(catalog, "t").calculate(all_time())["sample_count"], 2)
 
@@ -211,7 +211,7 @@ class HistoryTests(unittest.TestCase):
             write_log(newer, response(10, 15, "b", output=200), start=10)
             atomic_json(runtime / "selection.json", {"title": "标题", "thread_id": "t", "refresh_id": 2})
             result = wait_for(lambda value: value["refresh"]["request_id"] == 2)
-            self.assertEqual(result["source"]["path"], str(newer))
+            self.assertTrue(Path(result["source"]["path"]).samefile(newer))
             self.assertEqual(result["metrics"]["last"]["rate"], 40)
             self.assertEqual(result["refresh"]["state"], "ok")
         finally:
