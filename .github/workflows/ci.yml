@@ -70,7 +70,8 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-overlay.txt
       - name: Install Qt and native packager
-        run: python -m pip install --only-binary=:all: -r requirements-overlay.txt pyinstaller==6.22.3
+        run: >-
+          python -m pip install --only-binary=:all: -r requirements-overlay.txt pyinstaller==6.22.3
       - name: Install Linux desktop test dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb openbox x11-utils libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 fonts-noto-cjk
