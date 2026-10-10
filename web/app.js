@@ -6,6 +6,11 @@ const requestedThreads=params.getAll("thread");
 let current = requestedThreads[requestedThreads.length-1] || "", threads = [], mode = "time", first = null, last = null;
 let activeRange = null, loading = false, metadata = null, lastLive = null;
 let nativeAvailable = false, pinnedThread = "";
+let nativeFollowMode = "desktop", nativeLabel = "Windows 状态栏";
+function readNative(value){
+  nativeAvailable=!!value.native_available;pinnedThread=value.pinned_thread_id||"";
+  nativeFollowMode=value.native_follow_mode||"desktop";nativeLabel=value.native_label||"Windows 状态栏";
+}
 const fmt = (n, digits=1) => Number.isFinite(n) ? n.toLocaleString(undefined, {maximumFractionDigits:digits, minimumFractionDigits:digits}) : "—";
 const date = n => Number.isFinite(n) ? new Date(n).toLocaleString() : "—";
 const localInput = n => { const d=new Date(n); return new Date(n-d.getTimezoneOffset()*60000).toISOString().slice(0,19); };
@@ -27,14 +32,17 @@ function renderThreads(){
   $("threadMatchCount").textContent=matches.length+" 个对话";$("searchEmpty").hidden=matches.length>0||!query;
 }
 function syncHudControls(){
+  const follow=nativeFollowMode==="activity"?"最新活动对话":"桌面对话";
+  $("hudHeading").textContent=nativeLabel;
+  $("unpinHud").textContent="解除固定，自动跟随"+follow;
   $("hudControls").hidden=!nativeAvailable;
   $("pinHud").hidden=!nativeAvailable||!current||pinnedThread===current;
   $("unpinHud").hidden=!nativeAvailable||!pinnedThread;
-  $("hudState").textContent=!pinnedThread?"自动跟随桌面对话":pinnedThread===current?"已固定当前对话":"已固定其他对话";
+  $("hudState").textContent=!pinnedThread?"自动跟随"+follow:pinnedThread===current?"已固定当前对话":"已固定其他对话";
   $("hudBinding").hidden=pinnedThread===current;
   const pinned=threads.find(t=>t.id===pinnedThread);
   $("hudBinding").textContent=!pinnedThread?"固定对话后，切换到其他应用仍会显示状态栏。":pinnedThread===current?
-    "正在固定显示此对话。解除后将自动跟随桌面当前对话。":"当前固定："+(pinned?.title||pinnedThread);
+    "正在固定显示此对话。解除后将自动跟随"+follow+"。":"当前固定："+(pinned?.title||pinnedThread);
 }
 function syncActions(){
   document.querySelectorAll("[data-api]").forEach(button=>{button.disabled=loading||!current;});
@@ -42,7 +50,7 @@ function syncActions(){
 }
 async function loadThreads(force=false){
   const value=await api("threads"+(force?"?force=1":""));threads=value.threads;
-  nativeAvailable=!!value.native_available;pinnedThread=value.pinned_thread_id||"";
+  readNative(value);
   if(!current||!threads.some(t=>t.id===current))current=value.bound_thread_id||threads[0]?.id||"";
   renderThreads();syncActions();
   if(!current){$("selectedThread").textContent="暂无可读的本地对话";notice("未找到本地日志。请检查日志目录，然后点击立即刷新。",true);$("refresh").disabled=false;return;}
@@ -97,7 +105,7 @@ function showRange(result){
 async function updateLive(force=false){
   if(!current)return;const id=current,value=await api("live?"+threadQuery(force));if(current!==id)return;
   lastLive=value;const m=value.metrics,s=m.last,age=s?Date.now()-s.measured_at_ms:Infinity;
-  if("native_available" in value){nativeAvailable=!!value.native_available;pinnedThread=value.pinned_thread_id||"";syncHudControls();}
+  if("native_available" in value){readNative(value);syncHudControls();}
   const currentSample=s&&s.model===m.model&&!(m.turn_started_at_ms>s.measured_at_ms&&m.stage!=="idle");
   const valid=currentSample&&age<15*60*1000&&value.source.state==="ok";
   $("model").textContent=m.model||"模型尚无记录";$("liveRate").textContent=valid?fmt(s.rate):"—";$("liveCache").textContent=valid?fmt(s.cache_percent):"—";
@@ -137,7 +145,7 @@ $("confirm").addEventListener("click",()=>busy($("confirm"),async()=>{
 }));
 $("clearRange").addEventListener("click",()=>busy($("clearRange"),async()=>{await api("clear",{thread_id:current});showRange(null);notice("已返回最近响应统计。");}));
 $("refresh").addEventListener("click",()=>busy($("refresh"),async()=>{
-  const old=lastLive?.metrics.last?.measured_at_ms, listing=await api("threads?force=1");threads=listing.threads;nativeAvailable=!!listing.native_available;pinnedThread=listing.pinned_thread_id||"";
+  const old=lastLive?.metrics.last?.measured_at_ms, listing=await api("threads?force=1");threads=listing.threads;readNative(listing);
   if(!current||!threads.some(t=>t.id===current)){current=listing.bound_thread_id||threads[0]?.id||"";renderThreads();if(current)await selectThread();else notice("未找到本地日志，请检查日志目录。",true);return;}
   renderThreads();syncHudControls();await updateLive(true);
   if(mode==="messages")await searchMessages("first");
@@ -145,7 +153,7 @@ $("refresh").addEventListener("click",()=>busy($("refresh"),async()=>{
 }));
 $("mini").addEventListener("click",()=>{const hash=new URLSearchParams({token,thread:current,compact:"1"});window.open("/#"+hash,"codex-token-hud-mini","width=500,height=590,resizable=yes,scrollbars=yes");});
 $("pinHud").addEventListener("click",()=>busy($("pinHud"),async()=>{const id=current;await api("pin",{thread_id:id});pinnedThread=id;syncHudControls();notice("状态栏已固定此对话，切换应用后仍会显示。");}));
-$("unpinHud").addEventListener("click",()=>busy($("unpinHud"),async()=>{await api("unpin",{thread_id:current});pinnedThread="";syncHudControls();notice("已解除固定，状态栏自动跟随当前桌面对话。");}));
+$("unpinHud").addEventListener("click",()=>busy($("unpinHud"),async()=>{await api("unpin",{thread_id:current});pinnedThread="";syncHudControls();notice("已解除固定，状态栏自动跟随"+(nativeFollowMode==="activity"?"最新活动对话。":"当前桌面对话。"));}));
 if(params.get("compact")==="1")document.body.classList.add("compact");
 loadThreads().catch(e=>notice(e.message,true));
 setInterval(async()=>{if(loading||!current)return;try{await updateLive();}catch(e){notice(e.message,true);}},1000);

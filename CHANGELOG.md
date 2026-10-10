@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0-beta.5 — 2026-10-10
+
+Added a native Qt desktop HUD for macOS and Linux, with ready-to-run Intel/Apple Silicon and Linux x64/ARM64 build jobs. The strip stays above normal windows where supported, moves/resizes, saves its layout, restores after repeat launch, and offers tray/menu actions with a safe fallback when no tray exists. macOS panels remain visible when inactive and join Spaces with the full-screen auxiliary flag. XWayland is preferred when available; native Wayland retains system drag/resize, with compositor-specific stacking/placement limits.
+
+Choose and pin exact local conversation IDs, or explicitly follow the latest recorded activity. This mode does not infer the foreground conversation. Browser range snapshots, return-to-latest and pin/unpin changes synchronize with the strip. Force refresh rescans and rereads logs with visible acknowledgement. Per-chat weekly allowance remains unavailable. Browser labels now reflect the attached native platform and follow mode; the original Windows desktop-binding behavior is retained.
+
+Added isolated selection/freshness/window/IPC regressions and target-native bundled-launch checks using synthetic telemetry. Optional Qt dependencies are kept separate from the dependency-free browser/terminal tools; desktop packages retain replaceable shared libraries and third-party notices.
+
 ## 1.3.0-beta.4 — 2026-10-10
 
 Reworked the local statistics dashboard around conversation/range selection and prominent weighted results. Return-to-latest, Windows pin and unpin actions now have filled, bordered buttons visible without hovering, with 44px targets and explicit focus/busy/disabled states. Windows controls report automatic/current/other-conversation binding and update from live metadata. Added keyboard range tabs, inline validation that retains inputs, and invalidation of a selected message when its query is edited. The layout adapts to narrow screens and the mini-window; calculation details are collapsible.

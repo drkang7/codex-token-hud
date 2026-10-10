@@ -33,13 +33,22 @@ def data_directory() -> Path:
 
 
 class Dashboard:
-    def __init__(self, codex_home: Path, runtime: Path, logs=(), native_enabled=False):
+    def __init__(self, codex_home: Path, runtime: Path, logs=(), native_enabled=False,
+                 native_follow_mode="desktop", native_label="Windows 状态栏"):
         self.runtime = runtime
         self.native_enabled = native_enabled
+        self.native_follow_mode = native_follow_mode
+        self.native_label = native_label
         self.catalog = SessionCatalog(codex_home, logs)
         self.histories = HistoryCache()
         self.tails = TailCache()
         self.lock = threading.RLock()
+
+    def native_info(self):
+        return {"native_available": self.native_enabled, "native_follow_mode": self.native_follow_mode,
+                "native_label": self.native_label,
+                "pinned_thread_id": read_selection(self.runtime / "manual-binding.json").get("thread_id")
+                if self.native_enabled else None}
 
     def row(self, thread_id: str) -> dict:
         self.catalog.refresh()
@@ -58,8 +67,7 @@ class Dashboard:
                 native = read_selection(self.runtime / "metrics.json")
                 return {"threads": rows, "bound_thread_id": native.get("thread_id"),
                         "repository_state": self.catalog.repository.state,
-                        "native_available": self.native_enabled,
-                        "pinned_thread_id": read_selection(self.runtime / "manual-binding.json").get("thread_id")}
+                        **self.native_info()}
             row = self.row(thread_id)
             if endpoint == "live":
                 force = query.get("force") == ["1"]
@@ -68,8 +76,7 @@ class Dashboard:
                     row = self.row(thread_id)
                 tail = self.tails.update(row, force=force)
                 return {"thread_id": thread_id, "metrics": tail.measurements.snapshot(), "source": tail.source(),
-                        "native_available": self.native_enabled,
-                        "pinned_thread_id": read_selection(self.runtime / "manual-binding.json").get("thread_id") if self.native_enabled else None,
+                        **self.native_info(),
                         "range": self.saved_range(thread_id), "updated_at_ms": time.time() * 1000}
             if endpoint == "messages":
                 history = self.histories.load(self.catalog, thread_id, force=query.get("force") == ["1"])
@@ -86,6 +93,10 @@ class Dashboard:
 
     def post(self, endpoint: str, body: dict) -> dict:
         with self.lock:
+            if endpoint == "unpin":
+                # Recovery must also work when a pinned log was removed or moved offline.
+                atomic_json(self.runtime / "manual-binding.json", {})
+                return {"ok": True}
             thread_id = body.get("thread_id", "")
             self.row(thread_id)
             if endpoint == "range":
@@ -109,9 +120,6 @@ class Dashboard:
             if endpoint == "pin":
                 row = self.catalog.rows[thread_id]
                 atomic_json(self.runtime / "manual-binding.json", {"thread_id": thread_id, "title": row["title"]})
-                return {"ok": True}
-            if endpoint == "unpin":
-                atomic_json(self.runtime / "manual-binding.json", {})
                 return {"ok": True}
             raise ValueError("未知接口")
 
@@ -199,8 +207,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send(400, {"error": str(error)})
 
 
-def start_server(codex_home: Path, runtime: Path, logs=(), port=0, native_enabled=False):
-    server = LocalServer(Dashboard(codex_home, runtime, logs, native_enabled), port)
+def start_server(codex_home: Path, runtime: Path, logs=(), port=0, native_enabled=False,
+                 native_follow_mode="desktop", native_label="Windows 状态栏"):
+    server = LocalServer(Dashboard(codex_home, runtime, logs, native_enabled, native_follow_mode, native_label), port)
     threading.Thread(target=server.serve_forever, name="local-dashboard", daemon=True).start()
     atomic_json(runtime / "dashboard.json", {"url": server.url(), "pid": os.getpid()})
     return server

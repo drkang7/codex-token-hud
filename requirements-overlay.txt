@@ -1,0 +1,4 @@
+# Qt Widgets only; the browser dashboard and Windows .NET HUD stay dependency-free.
+# Python 3.10-3.13 retains macOS 12 / older x64 Linux compatibility.
+PySide6-Essentials==6.9.3; python_version < "3.14"
+PySide6-Essentials==6.10.3; python_version >= "3.14"

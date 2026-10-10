@@ -1,4 +1,4 @@
-name: HUD and portable dashboard checks
+name: HUD, native overlays and portable dashboard checks
 on:
   push:
     branches: [main]
@@ -42,6 +42,64 @@ jobs:
           path: |
             dist/*.zip
             dist/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+  native-overlay:
+    name: Native overlay (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            target: macos-x64
+          - os: macos-14
+            target: macos-arm64
+          - os: ubuntu-22.04
+            target: linux-x64
+          - os: ubuntu-24.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      HUD_REQUIRE_GUI: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements-overlay.txt
+      - name: Install Qt and native packager
+        run: python -m pip install --only-binary=:all: -r requirements-overlay.txt pyinstaller==6.22.3
+      - name: Install Linux desktop test dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb openbox x11-utils libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 fonts-noto-cjk
+      - name: Verify Cocoa window and HUD regressions
+        if: runner.os == 'macOS'
+        run: python -m unittest discover -s tests -p 'test_overlay*.py'
+      - name: Verify X11 window and HUD regressions
+        if: runner.os == 'Linux'
+        run: xvfb-run -a sh -c 'openbox >/tmp/hud-openbox.log 2>&1 & python -m unittest discover -s tests -p "test_overlay*.py"'
+      - name: Build ready-to-run native application
+        run: python PackageOverlay.py
+      - name: Launch bundled macOS application with synthetic telemetry
+        if: runner.os == 'macOS'
+        run: python tests/overlay_smoke.py --manifest build/overlay-native/package.json
+      - name: Launch bundled Linux application with synthetic telemetry
+        if: runner.os == 'Linux'
+        run: xvfb-run -a sh -c 'openbox >/tmp/hud-openbox.log 2>&1 & python tests/overlay_smoke.py --manifest build/overlay-native/package.json'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-overlay-${{ matrix.target }}
+          path: |
+            dist/*-overlay-*.zip
+            dist/*-overlay-*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        with:
+          name: overlay-ui-${{ matrix.target }}
+          path: build/overlay-ui/*.png
           if-no-files-found: error
           retention-days: 14
   cross-platform:

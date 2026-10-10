@@ -2,19 +2,46 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-本地 Codex token 统计工具：Windows 底部悬浮状态栏，以及可跨平台运行的浏览器面板和命令行报告。
+本地 Codex token 统计工具：Windows/macOS/Linux 桌面悬浮状态栏，以及浏览器面板和命令行报告。
 
-**当前源码版本：1.3.0-beta.4。** 独立开源项目，与 OpenAI 无隶属关系。只读本地日志，不改动 Codex 安装，不上传聊天内容。
+**当前源码版本：1.3.0-beta.5。** 独立开源项目，与 OpenAI 无隶属关系。只读本地日志，不改动 Codex 安装，不上传聊天内容。
 
 ![Windows 状态栏](docs/images/hud.png)
 
+## macOS/Linux 原生悬浮条
+
+![跨平台悬浮条](docs/images/overlay.png)
+
+示意图使用人工数据，截图来自 Windows Qt 后端；macOS/Linux 使用同一布局及各自的原生窗口后端。
+
+在 [GitHub Actions 成功运行](https://github.com/drkang7/codex-token-hud/actions)中下载对应的 `native-overlay-macos-x64`、`native-overlay-macos-arm64`、`native-overlay-linux-x64` 或 `native-overlay-linux-arm64` 产物，完整解压里面的 ZIP/tar.gz。macOS 将 **CodexTokenHud.app** 移到“应用程序”后打开；Linux 运行 `./CodexTokenHud/CodexTokenHud`。这些包内置 Python 和 Qt，无需自己安装依赖。macOS 测试包使用临时签名、尚未公证，遇到系统拦截可通过系统设置中的“仍要打开”启动。
+
+悬浮条显示 **tok/s、缓存命中率、模型和统计时间**。拖动空白处移动，拖动边角或右下角调整大小，布局自动保存。“选对话”可搜索标题或完整 ID 并固定；右键解除固定后，按日志最近记录的活动跟随，并明确显示“最新活动”。后台对话也可能成为最新活动，因此它不等同于正在查看的窗口；多个对话时间相同会要求手动选择。浏览器面板里的固定/解除固定、区间确认和返回最近响应会同步到悬浮条。
+
+也可直接用源码启动（已有 Python 3.10–3.14）：
+
+```sh
+sh start-overlay.sh
+# macOS 也可以双击 StartOverlay.command
+# 使用自己的虚拟环境：
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-overlay.txt
+python overlay.py
+python overlay.py --thread 完整对话ID --language zh
+```
+
+脚本首次运行会创建独立虚拟环境并下载 Qt，之后可离线使用；打包版本本身已包含依赖。新悬浮条的数据放在用户数据目录的 `overlay-runtime` 下，与原 Windows 状态栏分开。无需辅助功能权限，可读取兼容的 Desktop/CLI/IDE 本地日志及 `--log` 指定的离线日志。
+
+macOS 使用保持显示的原生浮动面板，并设置跨桌面及全屏辅助窗口行为。Linux 优先使用可用的 XWayland；纯 Wayland 的置顶和窗口位置由桌面合成器决定，可能需要系统窗口规则，程序无法保证所有桌面环境都接受置顶请求。拖动和缩放使用系统提供的操作。具体版本要求和验证范围见 [兼容说明](docs/COMPATIBILITY.md#native-macoslinux-desktop-strip)。
+
 ## 新增：区间平均统计
 
-在 Windows 状态栏或托盘图标上右键，选择 **“区间统计：按时间或首尾消息…”**。其他平台直接启动浏览器面板。
+在 Windows 状态栏或托盘图标上右键，选择 **“区间统计：按时间或首尾消息…”**。macOS/Linux 可在新悬浮条点击“区间统计”，也可直接启动浏览器面板。
 
 1. 选择一个本地对话，标题重复时可以按 ID 区分。
 2. 选择“按时间段”，填写开始和结束时间；或选择“按首尾消息”，输入消息全文或片段，点击查找，再点击对应的发送时间和消息。
-3. 点击“确认范围并统计”，显示该范围的平均 tok/s、平均缓存命中率、响应数量、总输出、有效计时和数据覆盖。Windows 状态栏同时显示该对话的“均速”。
+3. 点击“确认范围并统计”，显示该范围的平均 tok/s、平均缓存命中率、响应数量、总输出、有效计时和数据覆盖。对应的桌面悬浮条同时显示该对话的区间平均值。
 
 消息范围包含首尾两条用户消息，以及末条消息后的回答，截止到下一条用户消息之前。时间范围按响应完成时间判断，包含起止边界，使用本机时区。重复的消息不会自动猜测，需明确选择搜索结果。
 
@@ -47,7 +74,7 @@ Windows 可双击运行启动脚本，或在 PowerShell 中执行：
 .\StartDashboard.ps1 -PythonExecutable 'C:\path\to\python.exe'
 ```
 
-面板支持 Windows、macOS、Linux 上有兼容本地日志的 Desktop / CLI / IDE 对话；不依赖当前窗口标题或界面语言。点击“小窗”可打开独立浏览器窗口，使用系统窗口边框拖动和调整大小。macOS/Linux 不提供原生底部悬浮条，面板需手动选择对话。
+面板支持 Windows、macOS、Linux 上有兼容本地日志的 Desktop / CLI / IDE 对话；不依赖当前窗口标题或界面语言。点击“小窗”可打开独立浏览器窗口，使用系统窗口边框拖动和调整大小。macOS/Linux 现已提供独立原生悬浮条，可按准确 ID 固定对话，或明确跟随最新活动日志。
 
 从 Windows 状态栏打开的面板还可点击 **“将此对话固定到 Windows 状态栏”**：按准确 ID 固定并置顶显示，适用于 CLI、IDE，或桌面标题识别暂不可用的情况。固定和自动模式分别保存布局，右键“解除固定，自动跟随桌面对话”可恢复自动模式。
 

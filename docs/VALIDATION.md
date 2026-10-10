@@ -1,5 +1,15 @@
 # Validation and limits
 
+## 1.3.0-beta.5 — native macOS/Linux overlay
+
+On Windows x64 / Python 3.14.8 / Qt 6.10.3, the complete Python regression suite passed **54 tests** after adding the initial 20 overlay checks. An additional minimum-layout/screenshot check then passed, bringing the current suite to 55 checks. The overlay checks cover latest-activity selection, exact pin/unpin, missing logs, tied timestamps, external range/binding changes, force reread, model/turn/age guards, window recovery, unavailable trays, saved layout, exact-ID search, repeat-launch IPC and range display. The test harness explicitly flushes Qt deferred deletion between own-window fixtures; it does not automate Codex.
+
+A separate source-process launch with synthetic logs confirmed **500 output tokens / 5 seconds = 100.0 tok/s**, **1,500 / 2,000 = 75.0% cache**, a visible window, packaged-style local assets/API access, range/clear/unpin, repeat launch preserving the same real HUD process and graceful exit. Windows virtual-environment launchers may have a different parent PID, so recovery compares the original HUD's reported PID. No real log contents or IDs are used.
+
+The normal and compact native layouts were captured with artificial data at 850×160 and 640×160 logical pixels. Action buttons fit and remain visibly bordered without hovering. Node syntax checking and shell syntax checking passed. The source ZIP uses an explicit public-file list and executable metadata for shell/macOS launchers. Dependency license texts are included; the browser/terminal paths do not import Qt.
+
+Four native CI jobs are configured for macOS Intel/Apple Silicon and Linux x64/ARM64. They install Qt, run own-window regressions under Cocoa or X11/Openbox, build an onedir app, then launch that bundled app with synthetic telemetry and check actual Cocoa properties or X11 `_NET_WM_STATE_ABOVE`. Actual run results will be recorded here after completion. A configured job alone is not evidence of a passed native run. There is no real Codex desktop acceptance on those machines, full Spaces/full-screen workflow proof, or native Wayland compositor verification. Per-conversation weekly allowance remains unavailable.
+
 ## 1.3.0-beta.4 — dashboard and repeated-show checks on 2026-10-10
 
 The existing complete local regression script passed three consecutive times on Windows x64 / Python 3.14.8: **34 Python tests, 19 C# presentation/configuration checks and 24 native binding/lifecycle checks in every run**. The three new native cases assert that showing an already displayed strip preserves its view and title, disables the redundant menu action, and retains recovery for a hidden strip. Own-form fixtures do not control Codex. JavaScript syntax checking with Node 24.21.0 and the diff whitespace check also passed.
