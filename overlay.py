@@ -493,9 +493,9 @@ class Hud(QWidget):
     def show_hud(self):
         self.restore_until = time.monotonic() + 2
         self.restore_window()
-        if QApplication.platformName() == "cocoa":
-            # Cocoa can complete a minimize animation after showNormal() returns.
-            self.restore_timer.start()
+        # Cocoa animations and X11 window-manager replies may complete after
+        # showNormal() returns. Watch briefly without rebinding or taking focus.
+        self.restore_timer.start()
 
     def restore_window(self):
         if self.isMinimized():

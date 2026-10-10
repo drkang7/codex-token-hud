@@ -2,6 +2,7 @@ name: HUD, native overlays and portable dashboard checks
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -126,3 +127,37 @@ jobs:
         with:
           name: dashboard-${{ matrix.os }}
           path: dist/*-dashboard.zip
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [tests, portable, native-overlay, cross-platform]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: native-overlay-*
+          path: dist-release
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-x64-beta
+          path: dist-release
+      - uses: actions/download-artifact@v8
+        with:
+          name: dashboard-ubuntu-latest
+          path: dist-release
+      - name: Publish verified beta packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          version=$(cat VERSION)
+          test "$GITHUB_REF_NAME" = "v$version"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist-release/CodexTokenHud-"$version"* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist-release/CodexTokenHud-"$version"* --verify-tag --prerelease --title "$GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md
+          fi
