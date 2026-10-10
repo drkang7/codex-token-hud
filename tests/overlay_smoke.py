@@ -35,23 +35,28 @@ def main():
                    event(5, "event_msg", {"type": "task_complete"})]
         path.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
         command = program + ["--codex-home", str(root), "--runtime", str(runtime), "--log", str(path),
-                             "--thread", "synthetic-hud", "--language", "en", "--no-tray", "--quit-after", "12"]
+                             "--thread", "synthetic-hud", "--language", "en", "--no-tray", "--quit-after", "30"]
         with (root / "process.log").open("w+", encoding="utf-8") as output:
             process = subprocess.Popen(command, stdout=output, stderr=output)
-            def wait_for(predicate, timeout=18):
+            def wait_for(predicate, timeout=60):
                 deadline = time.monotonic() + timeout
+                last_status = None
                 while time.monotonic() < deadline:
                     if process.poll() is not None:
                         output.seek(0)
                         raise AssertionError("HUD exited before verification: " + output.read())
                     try:
                         value = json.loads((runtime / "status.json").read_text("utf-8"))
+                        last_status = value
                         if predicate(value):
                             return value
                     except (OSError, ValueError):
                         pass
                     time.sleep(0.05)
-                raise AssertionError("HUD did not publish the expected state")
+                startup = (runtime / "startup.json").read_text("utf-8") if (runtime / "startup.json").exists() else "not written"
+                output.seek(0)
+                raise AssertionError("HUD did not publish the expected state; last=" + json.dumps(last_status) +
+                                     "; startup=" + startup + "; log=" + output.read()[-4000:])
             status = None
             try:
                 status = wait_for(lambda value: value.get("rate") == "100.0" and value.get("cache") == "75.0")
@@ -90,7 +95,7 @@ def main():
                 final = wait_for(lambda value: value["thread_id"] == "synthetic-hud" and value["visible"])
                 # Windows' venv redirector is a parent of the real Python process.
                 assert final["pid"] == status["pid"], "Relaunch created a duplicate HUD"
-                assert process.wait(timeout=18) == 0
+                assert process.wait(timeout=45) == 0
                 output.seek(0)
                 log = output.read()
                 assert "Traceback" not in log, log

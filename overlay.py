@@ -679,13 +679,18 @@ def main():
     parser.add_argument("--quit-after", type=float, default=0, help=argparse.SUPPRESS)
     parser.add_argument("--no-tray", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    def startup(stage):
+        atomic_json(args.runtime / "startup.json", {"pid": os.getpid(), "stage": stage, "at_ms": time.time() * 1000})
+    startup("creating-application")
     app = QApplication([sys.argv[0]])
     app.setApplicationName("Codex Token HUD")
     app.setOrganizationName("CodexTokenHud")
     app.setQuitOnLastWindowClosed(False)
     instance = Instance(args.runtime)
     if not instance.acquire():
+        startup("existing-instance-shown")
         return 0
+    startup("starting-local-service")
     server = start_server(args.codex_home, args.runtime, args.log, native_enabled=True,
                           native_follow_mode="activity", native_label="macOS 悬浮条" if sys.platform == "darwin" else "Linux 悬浮条" if sys.platform.startswith("linux") else "跨平台悬浮条")
     if args.thread:
@@ -694,11 +699,13 @@ def main():
         except ValueError:
             # Keep the requested binding visible as unavailable rather than guess.
             atomic_json(args.runtime / "manual-binding.json", {"thread_id": args.thread})
+    startup("creating-hud")
     hud = Hud(server, args.language, tray=not args.no_tray)
     instance.show_requested.connect(hud.show_hud)
     app.applicationStateChanged.connect(lambda state: hud.show_hud() if state == Qt.ApplicationState.ApplicationActive and not hud.isVisible() else None)
     app.aboutToQuit.connect(hud.shutdown)
     hud.show()
+    startup("running")
     if args.quit_after > 0:
         QTimer.singleShot(int(args.quit_after * 1000), app.quit)
     try:
