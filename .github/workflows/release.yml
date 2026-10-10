@@ -1,34 +1,48 @@
-name: Draft beta release
+name: Publish verified beta release
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ['HUD, native overlays and portable dashboard checks']
+    types: [completed]
 permissions:
   contents: read
 jobs:
-  draft:
+  publish:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
           architecture: x64
-      - name: Check tag and package
-        shell: powershell
-        run: |
-          $taskVersion = (Get-Content VERSION -Raw).Trim()
-          if ($env:GITHUB_REF_NAME -ne "v$taskVersion") { throw 'Tag must match VERSION.' }
-          .\Package.ps1
-          .\Package.ps1 -Architecture arm64 -SkipTests -SkipSmokeTest
-          .\Package.ps1 -Architecture x86 -SkipTests -SkipSmokeTest
-          python PackageDashboard.py
-      - name: Create draft prerelease
+      - name: Complete architecture packages and publish verified release
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HUD_TAG: ${{ github.event.workflow_run.head_branch }}
         run: |
-          $taskAssets = @(Get-ChildItem dist -File | Where-Object { $_.Name -like '*.zip' -or $_.Name -like '*.sha256' } | ForEach-Object { $_.FullName })
-          gh release create $env:GITHUB_REF_NAME @taskAssets --verify-tag --draft --prerelease --title "Codex Token HUD $env:GITHUB_REF_NAME" --notes-file docs/RELEASE_NOTES.md
-          if ($LASTEXITCODE -ne 0) { throw 'Draft creation failed.' }
+          $ErrorActionPreference = 'Stop'
+          $taskVersion = (Get-Content VERSION -Raw).Trim()
+          if ($env:HUD_TAG -ne "v$taskVersion") { throw 'Tag must match verified VERSION.' }
+          $taskAssets = @(gh release view $env:HUD_TAG --json assets --jq '.assets[].name')
+          if ($LASTEXITCODE -ne 0) { throw 'Verified package release is missing.' }
+          foreach ($taskArchitecture in @('arm64', 'x86')) {
+            $taskArchiveName = "CodexTokenHud-$taskVersion-win-$taskArchitecture.zip"
+            if (($taskAssets -notcontains $taskArchiveName) -or ($taskAssets -notcontains "$taskArchiveName.sha256")) {
+              .\Package.ps1 -Architecture $taskArchitecture -SkipTests -SkipSmokeTest
+              if (-not (Test-Path -LiteralPath "dist/$taskArchiveName")) { throw 'Architecture package is missing.' }
+              gh release upload $env:HUD_TAG "dist/$taskArchiveName" "dist/$taskArchiveName.sha256" --clobber
+              if ($LASTEXITCODE -ne 0) { throw 'Architecture upload failed.' }
+            }
+          }
+          gh release edit $env:HUD_TAG --draft=false --prerelease --title "Codex Token HUD $env:HUD_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Release publication failed.' }
