@@ -71,7 +71,17 @@ class OverlayGuiTests(unittest.TestCase):
         self.hud.showMinimized()
         self.app.processEvents()
         self.hud.show_hud()
-        self.app.processEvents()
+        deadline = time.monotonic() + 2
+        stable_since = None
+        while time.monotonic() < deadline:
+            self.app.processEvents()
+            if not self.hud.isMinimized():
+                stable_since = stable_since or time.monotonic()
+                if time.monotonic() - stable_since > 0.3:
+                    break
+            else:
+                stable_since = None
+            time.sleep(0.01)
         self.assertFalse(self.hud.isMinimized())
         self.assertEqual(self.hud.snapshot["thread"]["id"], "one")
 

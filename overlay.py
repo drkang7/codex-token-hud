@@ -59,7 +59,7 @@ QSizeGrip { background: transparent; width: 18px; height: 18px; }
 """
 
 
-def mac_window_state(widget, configure=False):
+def mac_window_state(widget, configure=False, restore=False):
     """Operate only on this Qt window, using AppKit via the public ObjC runtime."""
     if sys.platform != "darwin" or QApplication.platformName() != "cocoa":
         return {}
@@ -69,11 +69,15 @@ def mac_window_state(widget, configure=False):
     selector = lambda name: objc.sel_registerName(name.encode("ascii"))
     pointer = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
     integer = ctypes.CFUNCTYPE(ctypes.c_ulong, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
+    boolean = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
     set_integer = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong)(("objc_msgSend", objc))
     set_bool = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool)(("objc_msgSend", objc))
+    send_object = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(("objc_msgSend", objc))
     window = pointer(int(widget.winId()), selector("window"))
     if not window:
         return {}
+    if restore and boolean(window, selector("isMiniaturized")):
+        send_object(window, selector("deminiaturize:"), None)
     behavior = integer(window, selector("collectionBehavior"))
     if configure:
         # canJoinAllSpaces | fullScreenAuxiliary; conflicting primary/move flags off.
@@ -82,7 +86,8 @@ def mac_window_state(widget, configure=False):
         set_bool(window, selector("setHidesOnDeactivate:"), False)
         set_integer(window, selector("setLevel:"), 3 if widget.windowFlags() & Qt.WindowType.WindowStaysOnTopHint else 0)
     return {"collection_behavior": integer(window, selector("collectionBehavior")),
-            "level": integer(window, selector("level"))}
+            "level": integer(window, selector("level")),
+            "miniaturized": boolean(window, selector("isMiniaturized"))}
 
 
 class Instance(QObject):
@@ -285,6 +290,10 @@ class Hud(QWidget):
         self.drag_offset = None
         self.resize_start = None
         self.native_error = ""
+        self.restore_until = 0.0
+        self.restore_timer = QTimer(self)
+        self.restore_timer.setInterval(100)
+        self.restore_timer.timeout.connect(self.finish_restore)
         self.setObjectName("hud")
         self.setWindowTitle("Codex Token HUD")
         # A normal Linux window preserves a taskbar entry on desktops without trays.
@@ -482,11 +491,32 @@ class Hud(QWidget):
         webbrowser.open(self.server.url((self.snapshot.get("thread") or {}).get("id", "")))
 
     def show_hud(self):
+        self.restore_until = time.monotonic() + 2
+        self.restore_window()
+        if QApplication.platformName() == "cocoa":
+            # Cocoa can complete a minimize animation after showNormal() returns.
+            self.restore_timer.start()
+
+    def restore_window(self):
         if self.isMinimized():
             self.showNormal()
         elif not self.isVisible():
             self.show()
+        try:
+            mac_window_state(self, restore=True)
+        except (OSError, ValueError, AttributeError) as error:
+            self.native_error = str(error)
         self.raise_()
+
+    def finish_restore(self):
+        if time.monotonic() >= self.restore_until:
+            self.restore_timer.stop()
+            return
+        try:
+            if self.isMinimized() or not self.isVisible() or mac_window_state(self).get("miniaturized"):
+                self.restore_window()
+        except (OSError, ValueError, AttributeError) as error:
+            self.native_error = str(error)
 
     def hide_hud(self):
         if self.tray.isVisible() and QSystemTrayIcon.isSystemTrayAvailable():
@@ -630,6 +660,7 @@ class Hud(QWidget):
             self.native_error = str(error)
 
     def shutdown(self):
+        self.restore_timer.stop()
         self.timer.stop()
         self.status_timer.stop()
         self.save_timer.stop()
